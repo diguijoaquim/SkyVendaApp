@@ -7,22 +7,47 @@
     "icon": "./assets/images/icon.png",
     "scheme": "skyvendaapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bluespark.skyvendamz",
+      "associatedDomains": [
+        "applinks:skyvenda.com",
+        "applinks:www.skyvenda.com"
+      ]
     },
+
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#4F46E5"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.bluespark.skyvendamz",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "skyvenda.com"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "skyvendaapp"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+
     "plugins": [
       "expo-router",
       [
@@ -35,8 +60,26 @@
         }
       ]
     ],
+
+    "newArchEnabled": true,
+
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+
     "experiments": {
       "typedRoutes": true
+    },
+
+    "extra": {
+      "router": {
+        "origin": "https://skyvenda.com"
+      },
+      "eas": {
+        "projectId": "681d850a-da42-43a8-8643-ed7f7985f7d0"
+      }
     }
   }
 }

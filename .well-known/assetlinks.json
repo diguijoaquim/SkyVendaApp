@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.bluespark.skyvendamz",
+      "sha256_cert_fingerprints": [
+        "E6:11:56:61:A0:E5:8C:12:22:4A:C5:36:A8:F2:74:37:66:28:51:1F:5A:E6:F8:38:D3:51:FD:1E:F2:D7:97:63",
+        "86:42:4C:85:2F:16:D3:6C:5B:78:C1:58:F3:EA:90:97:1C:86:39:05"
+      ]
+    }
+  }
+]
