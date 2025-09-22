@@ -277,23 +277,17 @@ export default function DynamicFeed() {
         case 'post':
           return <PostCard data={item.data} />;
         case 'ad':
-          return <AdCard data={item.data} />;
+          return <View className='px-2'><AdCard data={item.data} />;</View>
         case 'friend_suggestion':
           return <FriendSuggestionCard data={item.data} />;
         default:
           return (
-            <View style={styles.unknownBox}>
-              <Text style={styles.unknownText}>Tipo desconhecido: {item.type}</Text>
-            </View>
+            <></>
           );
       }
     } catch (error) {
       if (DEBUG) console.error('[DynamicFeed] Erro ao renderizar item:', error);
-      return (
-        <View style={styles.unknownBox}>
-          <Text style={styles.unknownText}>Erro ao carregar item</Text>
-        </View>
-      );
+      return <></>
     }
   }, []);
 
@@ -303,7 +297,9 @@ export default function DynamicFeed() {
       <BannerSlider />
       <News />
       <Nhonguistas />
-      <FeaturedProducts />
+      <View className='px-2'>
+        <FeaturedProducts />
+      </View>
     </View>
   ), []);
 

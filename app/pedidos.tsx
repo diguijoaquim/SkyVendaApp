@@ -4,6 +4,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getJson, postJson, putJson } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Order = {
   id: number;
@@ -186,7 +187,7 @@ export default function PedidosScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
@@ -252,7 +253,7 @@ export default function PedidosScreen() {
           />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

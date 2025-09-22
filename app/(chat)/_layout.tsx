@@ -1,7 +1,8 @@
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, useColorScheme, View, Platform, StatusBar } from 'react-native';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native'
 /**
  * This layout wraps all chat routes and provides a shared UI and navigation structure.
  * It includes a header with back button and chat title, and handles the chat context.
@@ -11,7 +12,8 @@ export default function ChatLayout() {
   const { isConnected } = useWebSocket();
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -51,7 +53,7 @@ export default function ChatLayout() {
           }}
         />
       </Stack>
-      
+
       {/* Offline indicator */}
       {!isConnected && (
         <View
@@ -65,6 +67,11 @@ export default function ChatLayout() {
           </View>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
+
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+});

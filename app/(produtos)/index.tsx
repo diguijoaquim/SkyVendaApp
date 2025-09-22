@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getJson } from '@/services/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type Product = {
   id: number;
@@ -111,7 +112,7 @@ export default function MyProductsScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       <View className="flex-row items-center justify-between bg-violet-600 px-3 py-3">
         <TouchableOpacity onPress={() => router.back()} className="w-8 h-8 items-center justify-center">
           <Ionicons name="chevron-back" size={22} color="#fff" />
@@ -167,7 +168,7 @@ export default function MyProductsScreen() {
           />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

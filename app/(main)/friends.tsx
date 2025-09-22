@@ -21,7 +21,7 @@ export default function FriendsScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'nhonguistas' | 'lojas'>('nhonguistas');
   const router = useRouter();
-  const {seller,setSellers}=useContext(HomeContext)
+  const {sellers, setSellers}=useContext(HomeContext)
 
   useEffect(() => {
     fetchNhonguistas();

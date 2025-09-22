@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useHome } from '@/contexts';
 import { getJson } from '@/services/api';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 interface Nhonguista {
   id: number;
   name: string;
@@ -77,7 +78,7 @@ export default function MobileMenuScreen() {
   }, [myproducts]);
 
   return (
-    <View className="flex-1 bg-gradient-to-br from-pink-100 via-white to-red-50">
+    <SafeAreaView className="flex-1 bg-gradient-to-br from-pink-100 via-white to-red-50">
       {/* Fixed Header */}
       <View className="flex-row items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-red-50 shadow-sm">
         <View className="flex-row items-center gap-2">
@@ -399,16 +400,6 @@ export default function MobileMenuScreen() {
                     <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                   </TouchableOpacity>
 
-                  <View className="bg-white/80 rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-3">
-                      <Ionicons name="moon" size={20} color="#4B5563" />
-                      <Text className="text-gray-700">Modo Escuro</Text>
-                    </View>
-                    <View className="w-11 h-6 bg-gray-200 rounded-full relative">
-                      <View className="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5" />
-                    </View>
-                  </View>
-
                   <TouchableOpacity 
                     onPress={() => router.push('/languages')}
                     className="bg-white/80 rounded-lg p-4 border border-gray-200 flex-row items-center justify-between"
@@ -462,6 +453,6 @@ export default function MobileMenuScreen() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 } 

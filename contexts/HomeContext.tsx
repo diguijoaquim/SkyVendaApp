@@ -72,7 +72,7 @@ interface HomeContextType {
   setNewMessage: (count: number) => void;
   chats: any[];
   setChats: (chats: any[]) => void;
-  // Cache e helpers para produtos/feeds/detalhes
+  // Cache e helpers para prosetsdutos/feeds/detalhes
   upsertFeedProducts: (products: Product[]) => void;
   getProductFromCache: (slug: string) => Product | ProductDetail | null;
   upsertProductDetail: (detail: ProductDetail) => void;

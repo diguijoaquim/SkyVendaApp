@@ -43,12 +43,8 @@ export default function Header() {
         </TouchableOpacity>
 
         <View>
-          <TouchableOpacity onPress={() => router.push('/chat')}>
-            <MaterialCommunityIcons
-              name={isActive('/chat') ? 'message-text' : 'message-text-outline'}
-              size={28}
-              color={isActive('/chat') ? '#8b5cf6' : '#374151'}
-            />
+          <TouchableOpacity onPress={() => router.push('/(chat)')}>
+            <Ionicons name='chatbubble-outline' size={28} color={isActive('/(chat)') ? '#8b5cf6' : '#374151'} />
           </TouchableOpacity>
           {newMessages > 0 && (
             <View style={[styles.badge, styles.badgeRight]}>

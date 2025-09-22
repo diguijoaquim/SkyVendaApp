@@ -3,17 +3,13 @@ import { BASE_URL } from '@/services/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
-  TextInput,
-  ActivityIndicator,
-  RefreshControl,
-  Alert
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -52,16 +48,16 @@ const UserHeader = ({ user }: { user: any }) => {
   return (
     <View className="flex flex-col p-4 border-b border-gray-200">
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 48 }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#374151" />
+        <TouchableOpacity onPress={() => router.back()}  className='px-3 py-1'>
+          <Ionicons name="arrow-back" size={28} color="#374151" />
         </TouchableOpacity>
         <Text style={{ fontWeight: 'bold', fontSize: 18 }}>{user?.username || 'Darkness'}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity onPress={refreshChats}>
-            <Ionicons name="refresh" size={20} color="#6B7280" />
+            <Ionicons name="refresh" size={28} color="#6B7280" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(chat)/new')} >
-            <Ionicons name="create-outline" size={20} color="#6B7280"  />
+            <Ionicons name="create-outline" size={28} color="#6B7280"  />
           </TouchableOpacity>
         </View>
       </View>

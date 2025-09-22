@@ -100,7 +100,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Atualizar estado
             setToken(token);
             
-            // Buscar dados do usuário
+            // Redirecionar primeiro para a tela de loading
+            router.push('/logining');
+            
+            // Buscar dados do usuário em background
             try {
               const userResponse: any = await getJson('/usuario/user', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -108,9 +111,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setUser(userResponse as User);
               setIsAuthenticated(true);
               console.log('✅ Login realizado com sucesso via deep link!');
-              
-              // Redirecionar para a tela principal
-              router.replace('/(main)');
             } catch (error) {
               console.error('❌ Erro ao buscar usuário:', error);
             }

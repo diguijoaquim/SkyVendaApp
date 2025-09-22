@@ -1,7 +1,7 @@
 {
   "name": "skyvenda-app",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -18,8 +18,8 @@
     "build:dev:ios": "eas build --platform ios --profile development",
     "build:preview:ios": "eas build --platform ios --profile preview",
     "build:prod:ios": "eas build --platform ios --profile production",
-    "build:apk": "eas build --platform android --profile production",
-    "build:aab": "eas build --platform android --profile production-aab",
+    "build:aab": "eas build --platform android --profile production",
+    "build:apk": "eas build --platform android --profile production-apk",
     "lint": "expo lint",
     "postinstall": "node ./scripts/fix-skeleton-expo.js"
   },

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "skyvenda-app",
+    "name": "SkyVenda MZ",
     "slug": "skyvenda-app",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "skyvendaapp",
@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bluespark.skyvendamz",
+      "buildNumber": "2",
       "associatedDomains": [
         "applinks:skyvenda.com",
         "applinks:www.skyvenda.com"
@@ -24,6 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.bluespark.skyvendamz",
+      "versionCode": 2,
       "intentFilters": [
         {
           "action": "VIEW",

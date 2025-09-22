@@ -52,6 +52,7 @@ export default function RootLayout() {
                   >
                     <Stack.Screen name="index" options={{ headerShown: false }}  />
                     <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
+                    <Stack.Screen name="logining" options={{ headerShown: false, title: 'Autenticando' }} />
                     <Stack.Screen name="cadastro" options={{ headerShown: false, title: 'Cadastro' }} />
                     <Stack.Screen name="recovery-password" options={{ headerShown: false, title: 'Recuperar Senha' }} />
                     <Stack.Screen 

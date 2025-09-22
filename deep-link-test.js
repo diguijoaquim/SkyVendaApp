@@ -23,7 +23,9 @@ const testUrls = [
 // 1. Instale o app no dispositivo
 // 2. Abra uma das URLs acima no navegador
 // 3. O app deve abrir automaticamente
-// 4. Verifique os logs no console
+// 4. Deve mostrar a tela "logining" primeiro
+// 5. Depois redirecionar para a tela principal
+// 6. Verifique os logs no console
 
 console.log('🔗 URLs de teste para Deep Linking:');
 testUrls.forEach((url, index) => {
@@ -34,7 +36,9 @@ console.log('\n📱 Para testar:');
 console.log('1. Instale o app no dispositivo');
 console.log('2. Abra uma das URLs acima no navegador');
 console.log('3. O app deve abrir automaticamente');
-console.log('4. Verifique os logs no console do app');
+console.log('4. Deve mostrar a tela "logining" primeiro');
+console.log('5. Depois redirecionar para a tela principal');
+console.log('6. Verifique os logs no console do app');
 
 // Exportar para uso em outros arquivos
 export default testUrls;
