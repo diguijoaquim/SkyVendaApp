@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Login() {
@@ -73,7 +73,7 @@ export default function Login() {
                 autoCorrect={false}
               />
             </View>
-
+ 
             {/* Password Input */}
             <View className="relative" style={{ marginBottom: 14 }}>
               <Ionicons
