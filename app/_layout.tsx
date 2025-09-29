@@ -1,12 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StatusBar as RNStatusBar, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
+import SplashScreen from '@/components/SplashScreen';
 import { AuthProvider, ChatProvider, HomeProvider, LoadingProvider } from '@/contexts';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
@@ -16,10 +19,39 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [showSplash, setShowSplash] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Simular carregamento de dados do usuário
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        // Verificar se há token salvo
+        const token = await AsyncStorage.getItem('auth_token');
+        if (token) {
+          // Simular carregamento de dados do usuário
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          // Simular carregamento inicial
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   if (!loaded) {
     // Async font loading only occurs in development.
     return null;
+  }
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} isLoading={isLoading} />;
   }
 
   return (
