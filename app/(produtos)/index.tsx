@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getJson } from '@/services/api';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type Product = {
@@ -121,7 +121,7 @@ export default function MyProductsScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      <View className="p-3 space-y-2">
+      <View className="p-3" style={{ gap: 8 }}>
         <View className="flex-row items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
           <Ionicons name="search" size={18} color="#9CA3AF" />
           <TextInput

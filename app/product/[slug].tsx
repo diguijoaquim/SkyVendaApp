@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions, Share, Alert } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useHome } from '@/contexts/HomeContext';
+import { postJson } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { postJson } from '@/services/api';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useHome } from '@/contexts/HomeContext';
-import { useAuth } from '@/contexts/AuthContext';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -29,12 +28,9 @@ export type ProdutoDetalhe = {
   user?: { id?: number; name?: string; username?: string; avatar?: string };
 };
 
-function formatPrice(v: number) {
-  try {
-    return new Intl.NumberFormat('pt-MZ', { style: 'decimal', minimumFractionDigits: 2 }).format(v);
-  } catch {
-    return String(v);
-  }
+function formatMZN(value?: number) {
+  if (typeof value !== 'number') return '0,00 MZN';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
 }
 
 export default function ProductScreen() {
@@ -119,7 +115,7 @@ export default function ProductScreen() {
     // Confirmar pedido
     Alert.alert(
       'Confirmar Pedido',
-      `Deseja fazer pedido de ${qty}x ${product.title} por MT ${formatPrice(product.price * qty)}?`,
+      `Deseja fazer pedido de ${qty}x ${product.title} por ${formatMZN(product.price * qty)}?`,
       [
         {
           text: 'Cancelar',
@@ -178,7 +174,7 @@ export default function ProductScreen() {
       const url = `https://skyvenda-mz.vercel.app/produto/${product.slug}`;
       await Share.share({
         title: product.title,
-        message: `${product.title} - MT ${formatPrice(product.price)}\n${url}`,
+        message: `${product.title} - ${formatMZN(product.price)}\n${url}`,
         url,
       });
     } catch (e) {
@@ -285,7 +281,7 @@ export default function ProductScreen() {
             )}
           </View>
           <View className="items-end">
-            <Text className="text-lg font-bold text-violet-600 text-right">MT {formatPrice(product.price)}</Text>
+            <Text className="text-lg font-bold text-violet-600 text-right">{formatMZN(product.price)}</Text>
             {!!product.time && <Text className="text-gray-500">Publicado {product.time}</Text>}
           </View>
         </View>

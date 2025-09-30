@@ -15,8 +15,8 @@ interface WalletData {
 }
 
 function formatMZN(value?: number) {
-  if (typeof value !== 'number') return '0,00 MT';
-  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MT`; }
+  if (typeof value !== 'number') return '0,00 MZN';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
 }
 
 export default function SkyWalletScreen() {

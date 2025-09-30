@@ -101,7 +101,7 @@ export default function RootLayout() {
                       options={{ 
                         headerShown: false, 
                         title: 'Pesquisar',
-                        animation: 'slide_from_right',
+                        animation: 'slide_from_bottom',
                         gestureEnabled: true,
                       }} 
                     />

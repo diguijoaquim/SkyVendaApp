@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export type Produto = {
   id: number;
@@ -29,19 +29,16 @@ export default function ProductCard({ product, onPress }: Props) {
       <Image source={{ uri: displayImage }} style={styles.cardImage} />
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle} numberOfLines={1}>{displayTitle}</Text>
-        <Text style={styles.cardPrice}>MT {formatPrice(displayPrice)}</Text>
+        <Text style={styles.cardPrice}>{formatMZN(displayPrice)}</Text>
         {product.descricao ? <Text style={styles.cardDesc} numberOfLines={2}>{product.descricao}</Text> : null}
       </View>
     </TouchableOpacity>
   );
 }
 
-function formatPrice(v: number) {
-  try {
-    return new Intl.NumberFormat('pt-MZ', { style: 'decimal', minimumFractionDigits: 2 }).format(v);
-  } catch {
-    return String(v);
-  }
+function formatMZN(value?: number) {
+  if (typeof value !== 'number') return '0,00 MZN';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
 }
 
 const styles = StyleSheet.create({

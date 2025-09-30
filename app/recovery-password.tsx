@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function RecoveryPassword() {
   const [email, setEmail] = useState('');
@@ -26,7 +26,7 @@ export default function RecoveryPassword() {
   return (
     <ScrollView className="flex-1 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100">
       <View className="flex-1 justify-center px-4 py-6 min-h-screen">
-        <View className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl p-6 space-y-6">
+        <View className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl p-6" style={{ gap: 24 }}>
           {/* Header */}
           <View className="items-center">
             <View className="mb-14">
@@ -41,7 +41,7 @@ export default function RecoveryPassword() {
           </View>
 
           {/* Form */}
-          <View className="space-y-4">
+          <View style={{ gap: 16 }}>
             {/* Email Input */}
             <View className="relative">
               <Ionicons 

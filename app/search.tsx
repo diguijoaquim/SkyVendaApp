@@ -1,25 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  Image, 
-  ActivityIndicator,
-  StyleSheet,
-  Platform, 
-  StatusBar, 
-  Alert,
+import { Feather } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  FlatList,
+  RefreshControl,
   ScrollView,
-  RefreshControl
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import { getJson } from '../services/api';
 import ProductCard, { Produto } from '../components/ProductCard';
 import ProductCardSkeleton from '../components/skeletons/ProductCardSkeleton';
+import { getJson } from '../services/api';
 
 export default function SearchScreen() {
   const { q: initialQuery } = useLocalSearchParams<{ q?: string }>();
@@ -145,18 +140,8 @@ export default function SearchScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color="#8B5CF6" />
+          <Feather name="arrow-left" size={30} color="#8B5CF6" />
         </TouchableOpacity>
-        <Text style={styles.title}>Pesquisar</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
-      <ScrollView 
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
         <View style={styles.searchBar}>
           <Feather name="search" size={20} color="#8B5CF6" />
           <TextInput
@@ -181,6 +166,14 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
+      </View>
+
+        <ScrollView 
+          style={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
 
         {!hasSearched && !initialQuery && (
           <View style={styles.suggestionsContainer}>
@@ -303,60 +296,45 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   safe: { 
     flex: 1, 
-    backgroundColor: '#FFFFFF', 
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0 
+    backgroundColor: '#FFFFFF',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    paddingVertical: 6,
+    gap: 12,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   backBtn: { 
-    paddingVertical: 8, 
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    paddingVertical: 4, 
+    paddingHorizontal: 4,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#8B5CF6' },
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 16, backgroundColor: '#FFFFFF' },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    marginBottom: 16,
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  input: { flex: 1, marginLeft: 8, fontSize: 16, color: '#111827' },
-  clearButton: {
-    padding: 4,
-    borderRadius: 12,
     backgroundColor: '#F3F4F6',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  input: { flex: 1, fontSize: 14, color: '#111827' },
+  clearButton: {
+    paddingHorizontal:4,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
   },
   searchHeader: {
     marginBottom: 16,
   },
   searchTitle: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 4,

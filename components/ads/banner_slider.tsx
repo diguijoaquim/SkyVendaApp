@@ -1,14 +1,20 @@
 import ContentLoader, { Rect } from '@/components/skeletons/ContentLoader'
-import { useHome } from '@/contexts/HomeContext'
-import { getJson } from '@/services/api'
+import { Ionicons } from '@expo/vector-icons'
+import axios from 'axios'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Dimensions, Linking, ListRenderItem, Pressable, StyleSheet, Text, View, Platform } from 'react-native'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Dimensions, Linking, ListRenderItem, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Carousel, { ICarouselInstance } from 'react-native-reanimated-carousel'
-import axios from 'axios'
 
-type Ad = { id: number; title: string; image: string; link?: string }
+type Ad = { 
+  id: number; 
+  title: string; 
+  image: string; 
+  link?: string;
+  tipo_anuncio?: string;
+  location?: string;
+}
 
 type RealAd = {
   id: number
@@ -23,6 +29,7 @@ type RealAd = {
   produto_nome: string
   produto_capa: string
   tipo: string
+  localizacao?: string | null
 }
 
 const { width } = Dimensions.get('window')
@@ -30,8 +37,7 @@ const SLIDE_HEIGHT = 150
 const AUTO_PLAY_MS = 3500
 
 export default function BannerSlider() {
-  const { ads, setAds } = useHome()
-  const data: Ad[] = useMemo(() => Array.isArray(ads) ? ads : [], [ads])
+  const [data, setData] = useState<Ad[]>([])
   const [index, setIndex] = useState(0)
   const listRef = useRef<ICarouselInstance | null>(null)
   const [loading, setLoading] = useState(false)
@@ -44,6 +50,22 @@ export default function BannerSlider() {
       ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
     return shuffled
+  }
+
+  // Get badge info based on ad type
+  const getBadgeInfo = (tipoAnuncio?: string) => {
+    switch (tipoAnuncio) {
+      case 'melhores_boladas':
+        return { text: 'MELHOR BOLADA', color: '#FFFFFF', bgColor: '#DC2626' }
+      case 'ofertas_diarias':
+        return { text: 'OFERTA DIÁRIA', color: '#FFFFFF', bgColor: '#EA580C' }
+      case 'promocoes':
+        return { text: 'PROMOÇÃO', color: '#FFFFFF', bgColor: '#7C3AED' }
+      case 'destaque':
+        return { text: 'DESTAQUE', color: '#FFFFFF', bgColor: '#059669' }
+      default:
+        return { text: 'OFERTA', color: '#FFFFFF', bgColor: '#374151' }
+    }
   }
 
   // Diagnostics to identify invalid elements
@@ -66,32 +88,60 @@ export default function BannerSlider() {
       try {
         setLoading(true)
         const response = await axios.get<RealAd[]>('https://skyvendas-production.up.railway.app/produtos/allads')
-        console.log('BannerSlider: Real ads API response =>', response.data)
+        console.log('🌐 BannerSlider: Real ads API response =>', {
+          status: response.status,
+          dataLength: response.data?.length,
+          firstItem: response.data?.[0],
+          allData: response.data
+        })
         
         if (!mounted) return
         
         // Convert real ads to Ad format
-        const convertedAds: Ad[] = response.data
-          .filter(ad => ad.ativo && ad.produto_capa) // Only active ads with images
-          .map(ad => ({
+        console.log('🔍 Filtering ads...');
+        const filteredAds = response.data.filter(ad => {
+          const isValid = ad.ativo && ad.produto_capa;
+          console.log('🔍 Ad filter check:', {
+            id: ad.id,
+            ativo: ad.ativo,
+            produto_capa: ad.produto_capa,
+            isValid
+          });
+          return isValid;
+        });
+        
+        console.log('🔍 Filtered ads count:', filteredAds.length);
+        
+        const convertedAds: Ad[] = filteredAds.map(ad => {
+          console.log('🔍 Processing ad:', {
             id: ad.id,
             title: ad.titulo || ad.produto_nome,
             image: ad.produto_capa,
-            link: undefined // No link provided in the API response
-          }))
+            ativo: ad.ativo,
+            fullAd: ad
+          });
+          return {
+            id: ad.id,
+            title: ad.titulo || ad.produto_nome,
+            image: ad.produto_capa,
+            link: undefined, // No link provided in the API response
+            tipo_anuncio: ad.tipo_anuncio,
+            location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique'
+          };
+        })
         
         // Randomize the ads
         const shuffledAds = shuffleArray(convertedAds)
         
         if (shuffledAds.length > 0) {
-          setAds(shuffledAds)
+          setData(shuffledAds)
         } else {
           console.log('BannerSlider: No valid ads found')
-          setAds([])
+          setData([])
         }
       } catch (e) {
         console.log('Error loading real ads:', e)
-        setAds([])
+        setData([])
       } finally {
         mounted && setLoading(false)
       }
@@ -107,7 +157,26 @@ export default function BannerSlider() {
 
   // Debug: log whenever ads/data changes
   useEffect(() => {
-    console.log('BannerSlider: ads updated. count=', data.length, 'sample=', data[0])
+    console.log('📊 BannerSlider: ads updated. count=', data.length, 'sample=', data[0])
+    if (data.length > 0) {
+      console.log('📋 All ads data:', data.map(ad => ({
+        id: ad.id,
+        title: ad.title,
+        image: ad.image,
+        hasImage: !!ad.image,
+        imageUrl: ad.image
+      })));
+      
+      // Log individual URLs for debugging
+      data.forEach((ad, index) => {
+        console.log(`🔍 Ad ${index}:`, {
+          id: ad.id,
+          title: ad.title,
+          imageUrl: ad.image,
+          isValidUrl: ad.image && ad.image.startsWith('http')
+        });
+      });
+    }
   }, [data])
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -131,8 +200,39 @@ export default function BannerSlider() {
               source={{ uri: item.image }}
               style={StyleSheet.absoluteFill}
               contentFit='cover'
-              cachePolicy='memory-disk'
+              cachePolicy='memory'
+              onError={(error) => {
+                console.log('❌ Image load error:', {
+                  error,
+                  url: item.image,
+                  title: item.title,
+                  id: item.id
+                });
+              }}
+              onLoad={() => {
+                console.log('✅ Image loaded successfully:', {
+                  url: item.image,
+                  title: item.title,
+                  id: item.id
+                });
+              }}
+              onLoadStart={() => {
+                console.log('🔄 Image load started:', {
+                  url: item.image,
+                  title: item.title,
+                  id: item.id
+                });
+              }}
             />
+            {/* Top badge for ad type */}
+            {item.tipo_anuncio && (
+              <View style={[styles.badgeContainer, { backgroundColor: getBadgeInfo(item.tipo_anuncio).bgColor }]}>
+                <Text style={[styles.badgeText, { color: getBadgeInfo(item.tipo_anuncio).color }]}>
+                  {getBadgeInfo(item.tipo_anuncio).text}
+                </Text>
+              </View>
+            )}
+            
             {/* Bottom shadow gradient for title overlay */}
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
@@ -140,9 +240,17 @@ export default function BannerSlider() {
             />
             {/* Title overlay at bottom */}
             <View style={styles.titleOverlay}>
-              <Text numberOfLines={2} style={styles.overlayTitle}>
-                {item.title}
+              <Text numberOfLines={1} style={styles.overlayTitle}>
+                {item.title || 'Sem título'}
               </Text>
+              {item.location && (
+                <View style={styles.locationContainer}>
+                  <Ionicons name="location" size={14} color="#FFD700" />
+                  <Text numberOfLines={1} style={styles.locationText}>
+                    {item.location}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </Pressable>
@@ -155,7 +263,7 @@ export default function BannerSlider() {
     // On web, avoid react-content-loader due to potential SVG issues with React 19; render simple skeleton instead
     if (Platform.OS === 'web') {
       return (
-        <View className='px-3 mt-3'>
+        <View style={styles.container}>
           <View style={styles.card}>
             <View style={[styles.imageWrap, { backgroundColor: '#e5e7eb' }]} />
             <View style={{ width: (width - 24) * 0.5, height: 18, backgroundColor: '#e5e7eb', borderRadius: 6, marginTop: 8 }} />
@@ -167,7 +275,7 @@ export default function BannerSlider() {
     if (!ContentLoader || typeof ContentLoader !== 'function') {
       // Fallback simple skeleton to avoid invalid element crash
       return (
-        <View className='px-3 mt-3'>
+        <View style={styles.container}>
           <View style={styles.card}>
             <View style={[styles.imageWrap, { backgroundColor: '#e5e7eb' }]} />
             <View style={{ width: (width - 24) * 0.5, height: 18, backgroundColor: '#e5e7eb', borderRadius: 6, marginTop: 8 }} />
@@ -176,7 +284,7 @@ export default function BannerSlider() {
       )
     }
     return (
-      <View className='px-3 mt-3'>
+      <View style={styles.container}>
         <View style={styles.card}>
           <ContentLoader
             speed={1.6}
@@ -199,7 +307,7 @@ export default function BannerSlider() {
     // Fallback: render the first card statically to avoid crash
     const item = data[0]
     return (
-      <View className='px-3 mt-3'>
+      <View style={styles.container}>
         <View style={styles.card}>
           <View style={styles.imageWrap}>
             {item?.image ? (
@@ -207,18 +315,56 @@ export default function BannerSlider() {
                 source={{ uri: item.image }}
                 style={StyleSheet.absoluteFill}
                 contentFit='cover'
-                cachePolicy='memory-disk'
+                cachePolicy='memory'
+                onError={(error) => {
+                  console.log('❌ Image load error in fallback:', {
+                    error,
+                    url: item.image,
+                    title: item.title,
+                    id: item.id
+                  });
+                }}
+                onLoad={() => {
+                  console.log('✅ Image loaded successfully in fallback:', {
+                    url: item.image,
+                    title: item.title,
+                    id: item.id
+                  });
+                }}
               />
-            ) : null}
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Sem imagem</Text>
+              </View>
+            )}
+            {/* Top badge for ad type */}
+            {item?.tipo_anuncio && (
+              <View style={[styles.badgeContainer, { backgroundColor: getBadgeInfo(item.tipo_anuncio).bgColor }]}>
+                <Text style={[styles.badgeText, { color: getBadgeInfo(item.tipo_anuncio).color }]}>
+                  {getBadgeInfo(item.tipo_anuncio).text}
+                </Text>
+              </View>
+            )}
+            
             <LinearGradient
               colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.15)', 'transparent']}
               style={styles.topGradient}
             />
           </View>
           {item?.title ? (
-            <Text numberOfLines={1} className='text-base text-neutral-200 mt-2 ml-1'>
-              {item.title}
-            </Text>
+            <View style={styles.fallbackTitleContainer}>
+              <Text numberOfLines={1} style={styles.fallbackTitle}>
+                {item.title || 'Sem título'}
+              </Text>
+              {item?.location && (
+                <View style={styles.fallbackLocationContainer}>
+                  <Ionicons name="location" size={10} color="#9CA3AF" />
+                  <Text numberOfLines={1} style={styles.fallbackLocationText}>
+                    {item.location}
+                  </Text>
+                </View>
+              )}
+            </View>
           ) : null}
         </View>
       </View>
@@ -226,22 +372,23 @@ export default function BannerSlider() {
   }
 
   return (
-    <View className='px-3 mt-3'>
+    <View style={styles.container}>
       <Carousel
         ref={listRef}
         data={data}
         renderItem={renderItem as any}
         width={width - 24}
         height={SLIDE_HEIGHT}
-        loop
-        autoPlay
-        autoPlayInterval={3500}
+        loop={data.length > 1}
+        autoPlay={data.length > 1}
+        autoPlayInterval={4000}
         pagingEnabled
         snapEnabled
         mode={'horizontal-stack'}
         modeConfig={{ snapDirection: 'left', stackInterval: 18 }}
         customConfig={() => ({ type: 'positive', viewCount: 5 })}
         onSnapToItem={(i: number) => setIndex(i)}
+        style={{ width: width - 24 }}
       />
     </View>
   )
@@ -250,6 +397,10 @@ export default function BannerSlider() {
 const CARD_RADIUS = 12
 
 const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 12,
+    marginTop: 12,
+  },
   card: {
     width: width - 24,
     marginRight: 8,
@@ -284,11 +435,11 @@ const styles = StyleSheet.create({
   },
   overlayTitle: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontSize: 18,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   dots: {
     flexDirection: 'row',
@@ -306,5 +457,60 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: '#ffffff',
     width: 16,
+  },
+  fallbackTitleContainer: {
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  fallbackTitle: {
+    fontSize: 16,
+    color: '#E5E7EB',
+  },
+  fallbackLocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  fallbackLocationText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    marginLeft: 4,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 })

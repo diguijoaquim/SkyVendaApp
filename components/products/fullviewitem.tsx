@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -30,12 +30,9 @@ type Props = {
   products: Product[];
 };
 
-function formatPrice(v: number) {
-  try {
-    return new Intl.NumberFormat('pt-MZ', { style: 'decimal', minimumFractionDigits: 2 }).format(v);
-  } catch {
-    return String(v);
-  }
+function formatMZN(value?: number) {
+  if (typeof value !== 'number') return '0,00 MZN';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
 }
 
 export default function FullViewItem({ products }: Props) {
@@ -95,7 +92,7 @@ export default function FullViewItem({ products }: Props) {
         {/* Product Title */}
         <View style={styles.titleContainer}>
           <Text style={styles.productTitle}>{product.title}</Text>
-          <Text style={styles.productPrice}>MT {formatPrice(product.price)}</Text>
+          <Text style={styles.productPrice}>{formatMZN(product.price)}</Text>
         </View>
 
         {/* Description */}

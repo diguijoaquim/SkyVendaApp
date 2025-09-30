@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ListRenderItemInfo, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import base_url from '@/api/api';
-import ProductCard from './items/ProductCard';
-import PostCard from './items/PostCard';
-import AdCard from './items/AdCard';
-import FriendSuggestionCard from './items/FriendSuggestionCard';
-import NewPostInput from '@/components/new_post_input';
 import BannerSlider from '@/components/ads/banner_slider';
-import News from '@/components/products/news';
+import NewPostInput from '@/components/new_post_input';
 import Nhonguistas from '@/components/nhonguistas';
 import FeaturedProducts from '@/components/products/FeaturedProducts';
+import News from '@/components/products/news';
 import { useHome } from '@/contexts/HomeContext';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, ListRenderItemInfo, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import AdCard from './items/AdCard';
+import FriendSuggestionCard from './items/FriendSuggestionCard';
+import PostCard from './items/PostCard';
+import ProductCard from './items/ProductCard';
 
 const DEBUG = true;
 const MAX_ITEMS = 80; // Reduzido para melhor performance
@@ -149,10 +149,16 @@ export default function DynamicFeed() {
       const url = `${base_url}/feed?${params.toString()}`;
       if (DEBUG) console.log('[DynamicFeed] Fetching:', { reset, url, itemsCount: items.length });
       
+      // Set timeout using AbortController
+      const timeoutId = setTimeout(() => {
+        requestController.current?.abort();
+      }, 10000); // 10s timeout
+      
       const res = await fetch(url, { 
-        signal: requestController.current.signal,
-        timeout: 10000 // 10s timeout
+        signal: requestController.current.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: FeedResponse = await res.json();
@@ -195,7 +201,7 @@ export default function DynamicFeed() {
         return finalItems;
       });
       
-      setCursor(data.cursor);
+      setCursor(data.cursor || '1');
       setHasMore(Boolean(data.has_more));
       
     } catch (e: any) {

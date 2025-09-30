@@ -1,18 +1,18 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { BASE_URL } from '@/services/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { BASE_URL } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  FlatList,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View
+    FlatList,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 
 interface ChatItem {
   id: string;
@@ -62,7 +62,7 @@ const UserHeader = ({ user }: { user: any }) => {
         </View>
       </View>
       <View className="flex">
-        <View className="flex flex-col items-center w-[60px] space-y-2">
+        <View className="flex flex-col items-center w-[60px]" style={{ gap: 8 }}>
           <TouchableOpacity 
             onPress={() => user?.username && router.push({ 
               pathname: '/(profile)/[username]', 

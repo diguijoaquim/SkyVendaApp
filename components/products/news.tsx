@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { Text, View, ScrollView, Image, TouchableOpacity } from 'react-native'
 import ContentLoader, { Rect } from '@/components/skeletons/ContentLoader'
 import axios from 'axios'
 import { useRouter } from 'expo-router'
+import React, { useEffect, useState } from 'react'
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 
 type Product = {
   id: number
@@ -14,6 +14,11 @@ type Product = {
 }
 
 type Props = { loading?: boolean }
+
+function formatMZN(value?: number) {
+  if (typeof value !== 'number') return '0,00 MZN';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
+}
 
 export default function News({ loading = false }: Props) {
   const [products, setProducts] = useState<Product[]>([])
@@ -73,9 +78,7 @@ export default function News({ loading = false }: Props) {
           // Actual products
           products.map((product) => {
             const displayPrice = product.price ?? product.preco
-            const priceText = typeof displayPrice === 'number'
-              ? new Intl.NumberFormat('pt-MZ', { style: 'decimal', minimumFractionDigits: 2 }).format(displayPrice)
-              : null
+            const priceText = typeof displayPrice === 'number' ? formatMZN(displayPrice) : null
             return (
               <TouchableOpacity 
                 key={product.id} 
@@ -127,7 +130,7 @@ export default function News({ loading = false }: Props) {
                         elevation: 3,
                       }}
                     >
-                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '900' }}>MT {priceText}</Text>
+                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '900' }}>{priceText}</Text>
                     </View>
                   ) : null}
                 </View>

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Alert, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import ContentLoader, { Rect } from '@/components/skeletons/ContentLoader';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getJson, postJson } from '@/services/api';
-
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 interface WalletData {
   id?: number | null;
   identificador_unico?: string | null;
@@ -14,8 +15,17 @@ interface WalletData {
 }
 
 function formatMZN(value?: number) {
-  if (typeof value !== 'number') return '0,00 MT';
-  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MT`; }
+  if (typeof value !== 'number' || isNaN(value)) return '0,00 MZN';
+  try { 
+    return new Intl.NumberFormat('pt-MZ', { 
+      style: 'currency', 
+      currency: 'MZN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value); 
+  } catch { 
+    return `${value.toFixed(2)} MZN`; 
+  }
 }
 
 export default function SkyWalletScreen() {
@@ -93,7 +103,7 @@ export default function SkyWalletScreen() {
   const frozen = data.saldo_congelado || 0;
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
       {/* AppBar - transparent with violet bottom border */}
       <View className="flex-row items-center justify-between px-4 py-3 border-b-2 border-violet-600">
         <TouchableOpacity onPress={() => router.back()} className="w-8 h-8 items-center justify-center">
@@ -182,9 +192,14 @@ export default function SkyWalletScreen() {
           )}
 
           {activeTab === 'wallet' && (
-            <View className="px-4 space-y-4 mt-3">
+            <View className="px-4 mt-3" style={{ gap: 16 }}>
               {/* Balance Card */}
-              <View className="bg-gradient-to-br from-violet-600 to-violet-500 rounded-2xl p-5">
+              <LinearGradient
+                colors={['#7C3AED', '#8B5CF6']} // violet-600 to violet-500
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ borderRadius: 16, padding: 20 }}
+              >
                 <Text className="text-white/80">Saldo disponível</Text>
                 <Text className="text-white text-3xl font-extrabold mt-1">{formatMZN(balance)}</Text>
                 <View className="flex-row items-center justify-between mt-3">
@@ -201,26 +216,39 @@ export default function SkyWalletScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </LinearGradient>
 
               {/* Quick Actions */}
-              <View className="grid grid-cols-2 gap-3">
-                <TouchableOpacity onPress={() => setActiveTab('deposit')} className="bg-violet-50 border border-violet-200 rounded-xl p-4 items-center">
+              <View className="flex-row gap-3">
+                <TouchableOpacity onPress={() => setActiveTab('deposit')} className="flex-1 bg-violet-50 border border-violet-200 rounded-xl p-4 items-center">
                   <Ionicons name="arrow-down-circle" size={26} color="#4F46E5" />
                   <Text className="text-violet-700 font-medium mt-2">Depósito</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('withdraw')} className="bg-violet-50 border border-violet-200 rounded-xl p-4 items-center">
+                <TouchableOpacity onPress={() => setActiveTab('withdraw')} className="flex-1 bg-violet-50 border border-violet-200 rounded-xl p-4 items-center">
                   <Ionicons name="arrow-up-circle" size={26} color="#4F46E5" />
                   <Text className="text-violet-700 font-medium mt-2">Levantamento</Text>
                 </TouchableOpacity>
               </View>
+              
+              {/* Transfer Button */}
+              <LinearGradient
+                colors={['#7C3AED', '#8B5CF6']} // violet-600 to violet-500
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ borderRadius: 12, padding: 8, alignItems: 'center' }}
+              >
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="swap-horizontal" size={26} color="#FFFFFF" />
+                  <Text className="text-white font-medium">Transferir</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             </View>
           )}
 
           {activeTab === 'deposit' && (
-            <View className="px-4 space-y-4 mt-4">
+            <View className="px-4 mt-4" style={{ gap: 16 }}>
               <Text className="text-lg font-bold text-gray-800">Depósito</Text>
-              <View className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+              <View className="bg-white rounded-xl border border-gray-200 p-4" style={{ gap: 12 }}>
                 <View>
                   <Text className="text-gray-700 mb-1">Valor (MZN)</Text>
                   <TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" className="border border-gray-200 rounded-lg px-3 py-2 text-gray-900" placeholder="0.00" placeholderTextColor="#9CA3AF" />
@@ -237,9 +265,9 @@ export default function SkyWalletScreen() {
           )}
 
           {activeTab === 'withdraw' && (
-            <View className="px-4 space-y-4 mt-4">
+            <View className="px-4 mt-4" style={{ gap: 16 }}>
               <Text className="text-lg font-bold text-gray-800">Levantamento</Text>
-              <View className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+              <View className="bg-white rounded-xl border border-gray-200 p-4" style={{ gap: 12 }}>
                 <View>
                   <Text className="text-gray-700 mb-1">Valor (MZN)</Text>
                   <TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" className="border border-gray-200 rounded-lg px-3 py-2 text-gray-900" placeholder="0.00" placeholderTextColor="#9CA3AF" />
@@ -256,18 +284,18 @@ export default function SkyWalletScreen() {
           )}
 
           {activeTab === 'methods' && (
-            <View className="px-4 space-y-3 mt-4">
+            <View className="px-4 mt-4" style={{ gap: 12 }}>
               <Text className="text-lg font-bold text-gray-800">Métodos de Pagamento</Text>
-              <View className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+              <View className="bg-white rounded-xl border border-gray-200 p-4" style={{ gap: 8 }}>
                 <Text className="text-gray-700">• Mpesa</Text>
                 <Text className="text-gray-700">• Emola</Text>
-                <Text className="text-gray-700">• Conta Bancária</Text>
+                <Text className="text-gray-700">• PayPal</Text>
                 <Text className="text-gray-500 mt-2">Em breve: cartões e outros provedores.</Text>
               </View>
             </View>
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
