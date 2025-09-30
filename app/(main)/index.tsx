@@ -4,7 +4,7 @@ import DynamicFeed from '@/components/feed/DynamicFeed';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function MainIndex() {
-  const [isOnline, setIsOnline] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
 
   return (
     <View style={{ flex: 1 }}>
@@ -18,7 +18,9 @@ export default function MainIndex() {
             setIsOnline(false)
           }, 1000);
         }}>
-          <View className='bg-violet-500 text-white py-1  px-10 rounded-md'>Atualizar</View>
+          <View className='bg-violet-500 py-1 px-10 rounded-md'>
+            <Text className='text-white font-bold'>Atualizar</Text>
+          </View>
         </TouchableOpacity>
       </View>}
     </View>

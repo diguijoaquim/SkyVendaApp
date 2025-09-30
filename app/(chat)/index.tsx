@@ -46,7 +46,7 @@ const UserHeader = ({ user }: { user: any }) => {
   }
   
   return (
-    <View className="flex flex-col p-4 border-b border-gray-200">
+    <View className="flex flex-col p-3 border-b border-gray-200 ">
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 48 }}>
         <TouchableOpacity onPress={() => router.back()}  className='px-3 py-1'>
           <Ionicons name="arrow-back" size={28} color="#374151" />

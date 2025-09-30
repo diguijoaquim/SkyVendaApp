@@ -103,27 +103,43 @@ export default function FeaturedProducts() {
     }
   }, [page, hasMore, isLoadingMore, loading, fetchPage]);
 
+  // Amostra aleatória de até 10 produtos
+  const sampledProdutos = useMemo(() => {
+    if (!Array.isArray(produtos) || produtos.length === 0) return [] as Produto[];
+    const copy = [...produtos];
+    // Fisher-Yates shuffle parcial até 10
+    const max = Math.min(10, copy.length);
+    for (let i = 0; i < max; i++) {
+      const j = i + Math.floor(Math.random() * (copy.length - i));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, max);
+  }, [produtos]);
+
   const renderItem = useCallback(({ item }: { item: Produto }) => (
-    <ProductCard
-      product={item}
-      onPress={() => {
-        if (item.slug) {
-          router.push({ pathname: '/product/[slug]', params: { slug: String(item.slug) } });
-        }
-      }}
-    />
+    <View style={styles.cardWrap}>
+      <ProductCard
+        product={item}
+        onPress={() => {
+          if (item.slug) {
+            router.push({ pathname: '/product/[slug]', params: { slug: String(item.slug) } });
+          }
+        }}
+      />
+    </View>
   ), [router]);
 
   const keyExtractor = useCallback((item: Produto) => String(item.id), []);
 
   const ListFooter = useMemo(() => () => (
     <View style={{ paddingVertical: 16 }}>
-      {isLoadingMore ? <ActivityIndicator color="#8b5cf6" /> : null}
-      {!hasMore && produtos.length > 0 ? (
-        <Text style={styles.footerText}>Não há mais produtos para carregar</Text>
-      ) : null}
+      <TouchableOpacity onPress={() => router.push('/produtos')}>
+        <View style={{ backgroundColor: '#7C3AED', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Ver mais produtos</Text>
+        </View>
+      </TouchableOpacity>
     </View>
-  ), [isLoadingMore, hasMore, produtos.length]);
+  ), [router]);
 
   if (loading) {
     return (
@@ -147,15 +163,16 @@ export default function FeaturedProducts() {
 
   return (
     <FlatList
-      data={produtos}
+      data={sampledProdutos}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       contentContainerStyle={styles.listContent}
       numColumns={2}
-      columnWrapperStyle={{ gap: 12 }}
+      columnWrapperStyle={styles.rowWrap}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      onEndReachedThreshold={0.3}
-      onEndReached={loadMore}
+      // Desabilita auto-carregamento; usa botão no footer
+      onEndReachedThreshold={undefined as any}
+      onEndReached={undefined as any}
       ListEmptyComponent={() => (
         <View style={styles.center}>
           <Text style={styles.emptyText}>Nenhum produto encontrado</Text>
@@ -175,7 +192,13 @@ function formatPrice(v: number) {
 }
 
 const styles = StyleSheet.create({
-  listContent: { padding: 16, gap: 12 },
+  listContent: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 16 },
+  rowWrap: { justifyContent: 'space-between' },
+  cardWrap: {
+    flex: 1,
+    marginHorizontal: 4,
+    marginBottom: 12,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 ,minHeight:200},
   loadingText: { marginTop: 8, color: '#6B7280' },
   emptyText: { marginTop: 8, color: '#6B7280', textAlign: 'center' },
