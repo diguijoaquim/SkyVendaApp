@@ -50,8 +50,7 @@ export type ChatUser = {
     last_seen?: string;
     is_online?: boolean;
   };
-  isOnline?: boolean;
-  unreadCount?: number;
+
 };
 
 type WebSocketContextValue = {
@@ -63,6 +62,7 @@ type WebSocketContextValue = {
   setSelectedUser: React.Dispatch<React.SetStateAction<ChatUser | null>>;
   newMessage: number;
   newNotification: number;
+  newOrders: number;
   userTyping: string | null;
   userRecording: string | null;
   onlineUsers: string[];
@@ -74,6 +74,7 @@ type WebSocketContextValue = {
     file?: any
   ) => Promise<string | null>;
   markAsRead: (chatId: string) => void;
+  markAllChatsAsRead: () => void;
   connect: () => void;
   disconnect: () => void;
 };
@@ -89,6 +90,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const { token, user } = useAuth();
   const [newMessage, setNewMessage] = useState<number>(0);
   const [newNotification, setNewNotification] = useState<number>(0);
+  const [newOrders, setNewOrders] = useState<number>(0);
   const [userTyping, setUserTyping] = useState<string | null>(null);
   const [userRecording, setUserRecording] = useState<string | null>(null);
   const [chats, setChats] = useState<ChatUser[]>([]);
@@ -153,6 +155,9 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
       });
       wsLog('refreshChats: mapped', mapped.length, 'chats');
       setChats(mapped);
+      // Atualiza contador agregado de mensagens não lidas
+      const totalUnread = mapped.reduce((sum, c) => sum + (Number(c.unread_count || 0)), 0);
+      setNewMessage(totalUnread);
     } catch (error) {
       wsError('refreshChats error:', error);
     }
@@ -257,6 +262,24 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             lastPongAtRef.current = Date.now();
             return;
           }
+          if (t === 'notifications_unread_count') {
+            const payload = data.data || data;
+            const total = Number(payload?.total_nao_lidas ?? 0);
+            setNewNotification(isNaN(total) ? 0 : total);
+            return;
+          }
+          if (t === 'notification_new') {
+            // Incrementa contador de notificações e detecta notificações de pedidos
+            setNewNotification(prev => prev + 1);
+            try {
+              const d = data.data || {};
+              const tipo = (d.tipo || '').toString().toLowerCase();
+              if (tipo.includes('pedido')) {
+                setNewOrders(prev => prev + 1);
+              }
+            } catch {}
+            return;
+          }
           if (t === 'message') {
             const payload = data.data || data; // backend may wrap in data
             handleIncomingMessage(payload);
@@ -272,7 +295,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             return;
           }
           // Other types we currently ignore or handle elsewhere (notifications, status, etc.)
-          if (t === 'notifications_unread_count' || t === 'user_status' || t === 'typing' || t === 'recording' || t === 'message_status' || t === 'notification' || t === 'order_status') {
+          if (t === 'user_status' || t === 'typing' || t === 'recording' || t === 'message_status' || t === 'notification' || t === 'order_status') {
             return;
           }
         } catch (error) {
@@ -400,6 +423,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         const newChats = [...prevChats];
         newChats[chatIndex] = updatedChat;
         wsLog('handleIncomingMessage: appended to existing chat', normalizedUserId, 'total msgs=', updatedChat.mensagens?.length || 0);
+        // Atualiza badge de mensagens: soma agregada rápida (incremento se chat não está aberto)
+        if (!(selectedUser?.id === normalizedUserId)) {
+          setNewMessage(prev => prev + 1);
+        }
         return newChats;
       } else {
         // Create new chat
@@ -424,6 +451,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         setTimeout(() => {
           refreshChats();
         }, 500);
+        // Novo chat implica nova mensagem não lida
+        setNewMessage(prev => prev + 1);
         
         return [newChat, ...prevChats];
       }
@@ -563,6 +592,39 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     });
   };
 
+  const markAllChatsAsRead = () => {
+    wsLog('markAllChatsAsRead: begin');
+    // Local: zerar todas as contagens e marcar mensagens como lidas
+    setChats((prev: ChatUser[]) => prev.map((c: ChatUser) => ({
+      ...c,
+      mensagens: (c.mensagens || []).map((m: Message) => ({ ...m, is_read: true })),
+      unread_count: 0,
+      unreadCount: 0,
+    })));
+    setNewMessage(0);
+    // Backend: enviar read_all para cada chat com não lidas
+    try {
+      const isOpen = socketRef.current?.readyState === WebSocket.OPEN;
+      if (isOpen) {
+        const ids = Array.from(new Set((chats || []).filter((c: ChatUser) => (c.unread_count || 0) > 0).map((c: ChatUser) => String(c.id))));
+        ids.forEach((id: string) => {
+          try {
+            socketRef.current?.send(JSON.stringify({ type: 'read_all', to_user: id }));
+          } catch (e) {
+            wsWarn('markAllChatsAsRead send failed for', id, e as any);
+          }
+        });
+      } else {
+        wsWarn('markAllChatsAsRead: socket not open -> will refresh');
+        setTimeout(() => { refreshChats(); }, 800);
+      }
+    } catch (e) {
+      wsWarn('markAllChatsAsRead error', e as any);
+    }
+    // Sincroniza do servidor depois
+    setTimeout(() => { refreshChats(); }, 800);
+  };
+
   // Connect on mount and when token changes
   useEffect(() => {
     wsLog('provider mount: token?', !!token);
@@ -611,12 +673,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedUser,
         newMessage,
         newNotification,
+        newOrders,
         userTyping,
         userRecording,
         onlineUsers,
         refreshChats,
         sendMessage,
         markAsRead,
+        markAllChatsAsRead,
         connect,
         disconnect,
       }}

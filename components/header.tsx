@@ -2,13 +2,12 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
 export default function Header() {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
-  const newMessages = 9;
-  const notifCount = 3;
-  const cartCount = 3;
+  const { newMessage, newNotification, newOrders, markAllChatsAsRead } = useWebSocket();
 
   return (
     <View style={styles.wrapper}>
@@ -43,12 +42,12 @@ export default function Header() {
         </TouchableOpacity>
 
         <View>
-          <TouchableOpacity onPress={() => router.push('/(chat)')}>
+          <TouchableOpacity onPress={() => { markAllChatsAsRead(); router.push('/(chat)'); }}>
             <Ionicons name='chatbubble-outline' size={28} color={isActive('/(chat)') ? '#8b5cf6' : '#374151'} />
           </TouchableOpacity>
-          {newMessages > 0 && (
+          {newMessage > 0 && (
             <View style={[styles.badge, styles.badgeRight]}>
-              <Text style={styles.badgeText}>{newMessages > 9 ? '+9' : newMessages}</Text>
+              <Text style={styles.badgeText}>{newMessage > 9 ? '+9' : newMessage}</Text>
             </View>
           )}
         </View>
@@ -66,9 +65,9 @@ export default function Header() {
               color={isActive('/notifications') ? '#8b5cf6' : '#374151'}
             />
           </TouchableOpacity>
-          {notifCount > 0 && (
+          {newNotification > 0 && (
             <View style={[styles.badge, styles.badgeRight]}>
-              <Text style={styles.badgeText}>{notifCount}</Text>
+              <Text style={styles.badgeText}>{newNotification > 9 ? '+9' : newNotification}</Text>
             </View>
           )}
         </View>
@@ -77,9 +76,9 @@ export default function Header() {
           <TouchableOpacity onPress={() => router.push('/pedidos') }>
             <Feather name="shopping-cart" size={28} color="#374151" />
           </TouchableOpacity>
-          {cartCount > 0 && (
+          {newOrders > 0 && (
             <View style={[styles.badge, styles.badgeRight]}>
-              <Text style={styles.badgeText}>{cartCount}</Text>
+              <Text style={styles.badgeText}>{newOrders > 9 ? '+9' : newOrders}</Text>
             </View>
           )}
         </View>

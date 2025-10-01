@@ -283,7 +283,7 @@ export default function DynamicFeed() {
         case 'post':
           return <PostCard data={item.data} />;
         case 'ad':
-          return <View className='px-2'><AdCard data={item.data} />;</View>
+          return <View className='px-2'><AdCard data={item.data} /></View>
         case 'friend_suggestion':
           return <FriendSuggestionCard data={item.data} />;
         default:
