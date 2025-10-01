@@ -1,10 +1,12 @@
 import ContentLoader, { Rect } from '@/components/skeletons/ContentLoader'
+import { getJson } from '@/services/api'
 import { Ionicons } from '@expo/vector-icons'
 import axios from 'axios'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useRouter } from 'expo-router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Dimensions, Linking, ListRenderItem, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Alert, Dimensions, Linking, ListRenderItem, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Carousel, { ICarouselInstance } from 'react-native-reanimated-carousel'
 
 type Ad = { 
@@ -15,22 +17,31 @@ type Ad = {
   tipo_anuncio?: string;
   location?: string;
   price?: number;
+  produto_id?: number;
+  slug?: string;
 }
 
 type RealAd = {
   id: number
-  titulo: string
+  titulo?: string
+  nome?: string
   descricao: string
-  tipo_anuncio: string
-  produto_id: number
-  promovido_em: string
+  tipo_anuncio?: string
+  produto_id?: number
+  promovido_em?: string
   expira_em: string
   ativo: boolean
-  preco: number
-  produto_nome: string
-  produto_capa: string
+  preco?: number
+  produto_nome?: string
+  produto_capa?: string
+  foto?: string
   tipo: string
   localizacao?: string | null
+  link?: string
+  status?: string
+  criado_em?: string
+  cliques?: number
+  usuario_id?: number
 }
 
 const { width } = Dimensions.get('window')
@@ -38,6 +49,7 @@ const SLIDE_HEIGHT = 160
 const AUTO_PLAY_MS = 3500
 
 export default function BannerSlider() {
+  const router = useRouter()
   const [data, setData] = useState<Ad[]>([])
   const [index, setIndex] = useState(0)
   const listRef = useRef<ICarouselInstance | null>(null)
@@ -51,6 +63,33 @@ export default function BannerSlider() {
       ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
     return shuffled
+  }
+
+  // Function to get product slug by produto_id
+  const getProductSlug = async (produtoId: number): Promise<string | null> => {
+    try {
+      console.log('🔍 Fetching product slug for ID:', produtoId)
+      // Try different endpoints that might work
+      let product = null
+      
+      // Try the direct product endpoint first
+      try {
+        product = await getJson<any>(`/produtos/${produtoId}`)
+        console.log('📦 Product data from /produtos/:id:', product)
+      } catch (e) {
+        console.log('⚠️ /produtos/:id failed, trying /produtos/detalhe/:id')
+        // Try the detail endpoint
+        product = await getJson<any>(`/produtos/detalhe/${produtoId}`)
+        console.log('📦 Product data from /produtos/detalhe/:id:', product)
+      }
+      
+      const slug = product?.slug || null
+      console.log('🏷️ Extracted slug:', slug)
+      return slug
+    } catch (error) {
+      console.log('❌ Error fetching product slug:', error)
+      return null
+    }
   }
 
   // Get badge info based on ad type
@@ -110,11 +149,14 @@ export default function BannerSlider() {
         // Convert real ads to Ad format
         console.log('🔍 Filtering ads...');
         const filteredAds = response.data.filter(ad => {
-          const isValid = ad.ativo && ad.produto_capa;
+          // For anuncio2, check if it has foto, for anuncio1 check produto_capa
+          const hasImage = ad.tipo === 'anuncio2' ? ad.foto : ad.produto_capa;
+          const isValid = ad.ativo && hasImage;
           console.log('🔍 Ad filter check:', {
             id: ad.id,
+            tipo: ad.tipo,
             ativo: ad.ativo,
-            produto_capa: ad.produto_capa,
+            hasImage,
             isValid
           });
           return isValid;
@@ -123,21 +165,30 @@ export default function BannerSlider() {
         console.log('🔍 Filtered ads count:', filteredAds.length);
         
         const convertedAds: Ad[] = filteredAds.map(ad => {
+          // Use nome when titulo is empty or doesn't exist
+          const title = ad.titulo && ad.titulo.trim() ? ad.titulo : (ad.nome || ad.produto_nome || 'Sem título');
+          const image = ad.tipo === 'anuncio2' ? ad.foto : ad.produto_capa;
+          
           console.log('🔍 Processing ad:', {
             id: ad.id,
-            title: ad.titulo || ad.produto_nome,
-            image: ad.produto_capa,
+            tipo: ad.tipo,
+            title,
+            image,
             ativo: ad.ativo,
+            produto_id: ad.produto_id,
+            link: ad.link,
             fullAd: ad
           });
+          
           return {
             id: ad.id,
-            title: ad.titulo || ad.produto_nome,
-            image: ad.produto_capa,
-            link: undefined, // No link provided in the API response
+            title,
+            image: image!,
+            link: ad.link, // For anuncio2, this will be the external link
             tipo_anuncio: ad.tipo_anuncio,
             location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique',
             price: ad.preco,
+            produto_id: ad.produto_id,
           };
         })
         
@@ -200,12 +251,53 @@ export default function BannerSlider() {
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 60 })
 
   const renderItem: ListRenderItem<Ad> = useCallback(({ item }) => {
-    const onPress = () => {
-      if (item.link) Linking.openURL(item.link).catch(() => {})
+    const onPress = async () => {
+      console.log('🎯 Ad clicked:', {
+        id: item.id,
+        title: item.title,
+        produto_id: item.produto_id,
+        link: item.link
+      })
+      
+      // Check if it's an external link (anuncio2) or product navigation (anuncio1)
+      if (item.link) {
+        console.log('🔗 Opening external link (anuncio2):', item.link)
+        try {
+          await Linking.openURL(item.link)
+        } catch (error) {
+          console.log('❌ Error opening external link:', error)
+          Alert.alert('Erro', 'Não foi possível abrir o link')
+        }
+      } else if (item.produto_id) {
+        console.log('🛍️ Navigating to product (anuncio1) with ID:', item.produto_id)
+        try {
+          // Try to get the product slug
+          const slug = await getProductSlug(item.produto_id)
+          console.log('📝 Retrieved slug:', slug)
+          if (slug) {
+            console.log('🚀 Navigating to:', `/product/${slug}`)
+            router.push(`/product/${slug}`)
+          } else {
+            console.log('❌ Could not find product slug for produto_id:', item.produto_id)
+            Alert.alert('Erro', 'Não foi possível encontrar o produto')
+          }
+        } catch (error) {
+          console.log('❌ Error navigating to product:', error)
+          Alert.alert('Erro', 'Erro ao navegar para o produto')
+        }
+      } else {
+        console.log('⚠️ No link or produto_id found for ad:', item)
+        Alert.alert('Aviso', 'Este anúncio não tem link ou produto associado')
+      }
     }
     return (
       <View style={styles.card}>
-        <Pressable onPress={onPress} style={{ flex: 1 }} android_ripple={{ color: 'rgba(255,255,255,0.1)' }}>
+        <Pressable 
+          onPress={onPress} 
+          style={{ flex: 1 }} 
+          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <View style={styles.imageWrap}>
             <Image
               source={{ uri: item.image }}
