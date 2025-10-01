@@ -14,6 +14,7 @@ type Ad = {
   link?: string;
   tipo_anuncio?: string;
   location?: string;
+  price?: number;
 }
 
 type RealAd = {
@@ -65,6 +66,15 @@ export default function BannerSlider() {
         return { text: 'DESTAQUE', color: '#FFFFFF', bgColor: '#059669' }
       default:
         return { text: 'OFERTA', color: '#FFFFFF', bgColor: '#374151' }
+    }
+  }
+
+  const formatMZN = (value?: number) => {
+    if (typeof value !== 'number') return ''
+    try {
+      return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value)
+    } catch {
+      return `MZN ${value}`
     }
   }
 
@@ -126,7 +136,8 @@ export default function BannerSlider() {
             image: ad.produto_capa,
             link: undefined, // No link provided in the API response
             tipo_anuncio: ad.tipo_anuncio,
-            location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique'
+            location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique',
+            price: ad.preco,
           };
         })
         
@@ -232,7 +243,7 @@ export default function BannerSlider() {
                 </Text>
               </View>
             )}
-            
+
             {/* Bottom shadow gradient for title overlay */}
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
@@ -243,12 +254,21 @@ export default function BannerSlider() {
               <Text numberOfLines={1} style={styles.overlayTitle}>
                 {item.title || 'Sem título'}
               </Text>
-              {item.location && (
-                <View style={styles.locationContainer}>
-                  <Ionicons name="location" size={14} color="#FFD700" />
-                  <Text numberOfLines={1} style={styles.locationText}>
-                    {item.location}
-                  </Text>
+              {(item.location || item.price) && (
+                <View style={styles.metaRow}>
+                  {item.location ? (
+                    <View style={styles.locationContainer}>
+                      <Ionicons name="location" size={14} color="#FFD700" />
+                      <Text numberOfLines={1} style={styles.locationText}>
+                        {item.location}
+                      </Text>
+                    </View>
+                  ) : <View />}
+                  {!!item.price && (
+                    <View style={styles.priceInlineBadge}>
+                      <Text style={styles.priceInlineText}>{formatMZN(item.price)}</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -430,7 +450,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+    paddingTop: 8,
     justifyContent: 'flex-end',
   },
   overlayTitle: {
@@ -440,6 +462,12 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
   },
   dots: {
     flexDirection: 'row',
@@ -499,6 +527,25 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
+  priceBadge: {
+    position: 'absolute',
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 10,
+    backgroundColor: 'rgba(17,24,39,0.75)', // slate-900 with opacity for contrast
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  priceText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -512,5 +559,18 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  priceInlineBadge: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    backgroundColor: 'rgba(124, 58, 237, 0.9)', // violet-600 with opacity
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  priceInlineText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 })
