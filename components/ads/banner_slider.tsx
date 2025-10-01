@@ -34,7 +34,7 @@ type RealAd = {
 }
 
 const { width } = Dimensions.get('window')
-const SLIDE_HEIGHT = 150
+const SLIDE_HEIGHT = 160
 const AUTO_PLAY_MS = 3500
 
 export default function BannerSlider() {
