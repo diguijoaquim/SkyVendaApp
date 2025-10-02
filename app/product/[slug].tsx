@@ -1,12 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useHome } from '@/contexts/HomeContext';
-import { postJson } from '@/services/api';
+import { getJson, postJson } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Linking, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
+const imageHeight = Math.round(width * 0.75);
 
 export type ProdutoDetalhe = {
   id: number;
@@ -43,8 +44,130 @@ export default function ProductScreen() {
   const [likeBusy, setLikeBusy] = useState(false);
   const [qty, setQty] = useState(1);
   const [orderLoading, setOrderLoading] = useState(false);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [ads, setAds] = useState<any[]>([]);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [comment, setComment] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const { getProductFromCache, ensureProductDetail, upsertProductDetail } = useHome();
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user: authUser } = useAuth() as any;
+
+  // Shuffle helper for ads randomization
+  const shuffleArray = useCallback((array: any[]) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []);
+
+  // Atualiza comentários buscando detalhes frescos do produto
+  const refreshComments = useCallback(async () => {
+    if (!slug) return;
+    try {
+      setCommentsLoading(true);
+      const headers = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+      const fresh = await getJson<any>(`/produtos/${slug}`, headers as any);
+      if (fresh) {
+        setProduct(fresh as any);
+        upsertProductDetail(fresh as any);
+      }
+    } catch {
+      // noop
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [slug, token, upsertProductDetail]);
+
+  const toggleComments = useCallback(() => {
+    if (isCommentsOpen) {
+      setIsClosing(true);
+      setTimeout(() => {
+        setIsCommentsOpen(false);
+        setIsClosing(false);
+      }, 250);
+    } else {
+      setIsCommentsOpen(true);
+    }
+  }, [isCommentsOpen, refreshComments]);
+
+  const handleComment = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Atenção', 'Precisa fazer login para comentar');
+      router.push('/login');
+      return;
+    }
+    if (!product || !slug) return;
+    const text = comment?.trim();
+    if (!text) return;
+    try {
+      setIsCommenting(true);
+      // Otimismo: adiciona comentário localmente
+      const optimistic = {
+        id: Math.random(),
+        text,
+        date: 'agora mesmo',
+        user: {
+          id: authUser?.id,
+          name: authUser?.name || authUser?.username,
+          username: authUser?.username,
+          avatar: authUser?.perfil || authUser?.avatar || 'avatar.png',
+        },
+      } as any;
+      setProduct(prev => prev ? { ...prev, comments: [ ...(prev.comments || []), optimistic ] } : prev);
+      setComment('');
+
+      // Backend espera multipart/form-data
+      const form = new FormData();
+      form.append('produto_slug', String(slug));
+      form.append('conteudo', text);
+
+      const postRes = await fetch(`https://skyvendas-production.up.railway.app/comentarios/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json',
+        },
+        body: form as any,
+      });
+      if (!postRes.ok) {
+        const txt = await postRes.text().catch(() => '');
+        throw new Error(txt || 'Falha ao enviar comentário');
+      }
+
+      // Recarrega detalhes para sincronizar (forçando bypass do cache)
+      const headers = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+      const fresh = await getJson<any>(`/produtos/${slug}`, headers as any);
+      if (fresh) {
+        setProduct(fresh as any);
+        // atualiza cache global também
+        upsertProductDetail(fresh as any);
+      }
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível enviar o comentário');
+    } finally {
+      setIsCommenting(false);
+    }
+  }, [isAuthenticated, product, slug, comment, token, ensureProductDetail, router]);
+
+  // Badge helper for ads tipo_anuncio
+  const getBadgeInfo = useCallback((tipo?: string) => {
+    switch (tipo) {
+      case 'melhores_boladas':
+        return { text: 'MELHOR BOLADA', color: '#FFFFFF', bgColor: '#DC2626' };
+      case 'ofertas_diarias':
+        return { text: 'OFERTA DIÁRIA', color: '#FFFFFF', bgColor: '#EA580C' };
+      case 'promocoes':
+        return { text: 'PROMOÇÃO', color: '#FFFFFF', bgColor: '#7C3AED' };
+      case 'destaque':
+        return { text: 'DESTAQUE', color: '#FFFFFF', bgColor: '#059669' };
+      default:
+        return { text: 'OFERTA', color: '#FFFFFF', bgColor: '#374151' };
+    }
+  }, []);
 
   const images = useMemo(() => {
     if (!product) return [] as string[];
@@ -91,6 +214,39 @@ export default function ProductScreen() {
       fetchProduct();
     }
   }, [slug]); // Only depend on slug
+
+  // Removido auto-carregamento de comentários ao entrar na página
+
+  // Buscar anúncios (horizontais) para sugerir após a descrição
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        setAdsLoading(true);
+        // Usa a mesma lógica de BannerSlider: /produtos/allads
+        const res = await getJson<any[]>(`/produtos/allads`);
+        const filtered = (res || []).filter((ad: any) => {
+          const hasImage = ad.tipo === 'anuncio2' ? ad.foto : ad.produto_capa;
+          return ad?.ativo && hasImage;
+        });
+        const normalized = filtered.map((ad: any) => ({
+          id: ad.id,
+          title: ad.titulo && ad.titulo.trim() ? ad.titulo : (ad.nome || ad.produto_nome || 'Sem título'),
+          image: ad.tipo === 'anuncio2' ? ad.foto : ad.produto_capa,
+          tipo_anuncio: ad.tipo_anuncio,
+          location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique',
+          price: Number(ad.preco ?? 0),
+          produto_id: ad.produto_id,
+        }));
+        const shuffled = shuffleArray(normalized);
+        setAds(shuffled);
+      } catch (e) {
+        // noop
+      } finally {
+        setAdsLoading(false);
+      }
+    };
+    fetchAds();
+  }, []);
 
   const createOrder = useCallback(async () => {
     if (!isAuthenticated) {
@@ -260,11 +416,11 @@ export default function ProductScreen() {
         </View>
       </View>
 
-      <ScrollView className="bg-white" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView className="bg-white " contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator keyboardShouldPersistTaps="handled" >
 
       {/* Gallery */}
-      <View className="w-full h-full bg-white">
-        <Image source={{ uri: images[currentImage] }} className="w-full h-full" />
+      <View className="w-full bg-white" style={{ height: imageHeight }}>
+        <Image source={{ uri: images[currentImage] }} className="w-full" style={{ height: imageHeight }} />
         {images.length > 1 ? (
           <View className="absolute bottom-3 left-0 right-0 flex-row justify-center">
             {images.map((_, i) => (
@@ -313,13 +469,88 @@ export default function ProductScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => Alert.alert('Comentários', 'Em breve: seção de comentários')}
+            onPress={toggleComments}
             style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={24} color="#374151" />
             <Text style={{ color: '#374151', fontWeight: '600' }}>{product.comments?.length || 0}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Comments Panel */}
+        {isCommentsOpen && (
+          <View
+            style={{
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: '#C7D2FE',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              backgroundColor: '#EEF2FF',
+              marginTop: 12,
+            }}
+          >
+            <View className='py-4'>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 8 }}>
+                <Text>{product.comments?.length || 0}</Text> Comentários
+              </Text>
+              <View style={{ gap: 8, marginBottom: 12, maxHeight: 320 }}>
+                <ScrollView
+                  style={{ maxHeight: 320 }}
+                  showsVerticalScrollIndicator
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {commentsLoading && (
+                    <View style={{ paddingVertical: 12 }}>
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                    </View>
+                  )}
+                  {(product.comments || []).map((c: any) => (
+                    <View key={String(c?.id)} style={{ backgroundColor: '#E0E7FF', borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8, width: '100%' }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 2,  overflow: 'hidden' }} className='border-violet-100'>
+                        <Image source={{ uri: `${c?.user?.avatar || 'avatar.png'}` }} style={{ width: '100%', height: '100%' }} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ fontWeight: '700', color: '#3730A3', fontSize: 13 }}>{c?.user?.name || c?.user?.username || 'Usuário'}</Text>
+                          {!!c?.date && <Text style={{ color: '#6B7280', fontSize: 12 }}>{c?.date}</Text>}
+                        </View>
+                        <Text style={{ color: '#4B5563', fontSize: 13 }}>{c?.text}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flex: 1, borderWidth: 1, borderColor: '#C7D2FE', borderRadius: 10, backgroundColor: '#F9FAFB' }}>
+                    <TextInput
+                      value={comment}
+                      onChangeText={setComment}
+                      placeholder={`Comente o ${product.title}`}
+                      style={{ paddingHorizontal: 12, paddingVertical: 10, color: '#111827' }}
+                      multiline
+                    />
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleComment}
+                    disabled={isCommenting || !comment.trim()}
+                    style={{ padding: 8, height: 40, width: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E0E7FF', borderRadius: 10, opacity: isCommenting || !comment.trim() ? 0.6 : 1 }}
+                    accessibilityLabel="Enviar comentário"
+                  >
+                    {isCommenting ? (
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                    ) : (
+                      <Ionicons name="send" size={18} color="#3730A3" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Quantity */}
         <View className="mt-3">
@@ -393,6 +624,58 @@ export default function ProductScreen() {
             <Text className="text-gray-700">{product.description}</Text>
           </View>
         )}
+
+        {/* Ads horizontais após descrição */}
+        <View className="mt-5">
+          <Text className="text-lg font-bold text-gray-800 mb-2">Anúncios</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+            {adsLoading ? (
+              <>
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <View key={idx} style={{ width: 160, marginRight: 12 }}>
+                    <View style={{ backgroundColor: '#E5E7EB', width: '100%', height: 110, borderRadius: 12 }} />
+                    <View style={{ height: 12, backgroundColor: '#E5E7EB', borderRadius: 6, marginTop: 8, width: 120 }} />
+                    <View style={{ height: 12, backgroundColor: '#E5E7EB', borderRadius: 6, marginTop: 6, width: 80 }} />
+                  </View>
+                ))}
+              </>
+            ) : (
+              (ads || []).slice(0, 12).map((item: any) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={{ width: 160, marginRight: 12 }}
+                  activeOpacity={0.85}
+                  onPress={async () => {
+                    try {
+                      if (item.slug) {
+                        router.push(`/product/${item.slug}`);
+                      } else if (item.link) {
+                        await Linking.openURL(item.link);
+                      }
+                    } catch (e) {
+                      Alert.alert('Erro', 'Não foi possível abrir o anúncio');
+                    }
+                  }}
+                >
+                  <View style={{ backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB' }}>
+                    {/* Tipo badge (top-left) */}
+                    {item.tipo_anuncio ? (
+                      <View style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, backgroundColor: getBadgeInfo(item.tipo_anuncio).bgColor, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
+                        <Text style={{ color: getBadgeInfo(item.tipo_anuncio).color, fontSize: 10, fontWeight: '800' }}>{getBadgeInfo(item.tipo_anuncio).text}</Text>
+                      </View>
+                    ) : null}
+                    <Image source={{ uri: item.image || 'https://via.placeholder.com/300x200?text=Anuncio' }} style={{ width: '100%', height: 110 }} />
+                    <View style={{ padding: 8 }}>
+                      <Text numberOfLines={1} style={{ fontWeight: '700', color: '#111827' }}>{item.title}</Text>
+                      {!!item.price && <Text style={{ color: '#7C3AED', fontWeight: '700', marginTop: 2 }}>{formatMZN(item.price)}</Text>}
+                      {!!item.location && <Text numberOfLines={1} style={{ color: '#6B7280', marginTop: 2 }}>{item.location}</Text>}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
       </View>
       </ScrollView>
     </View>
