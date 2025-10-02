@@ -125,3 +125,13 @@ export async function putMultipart<T>(path: string, formData: FormData, init?: A
 export async function del<T>(path: string, init?: AxiosRequestConfig): Promise<T> {
   return request<T>(path, { method: 'DELETE', ...(init || {}) });
 }
+
+// Função específica para seguir usuários
+export async function followUser(userId: number): Promise<any> {
+  return postJson(`/usuario/${userId}/seguir`, {});
+}
+
+// Função específica para deixar de seguir usuários
+export async function unfollowUser(userId: number): Promise<any> {
+  return del(`/usuario/${userId}/seguir`);
+}

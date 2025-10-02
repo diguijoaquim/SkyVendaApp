@@ -1,13 +1,15 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, usePathname } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { router, usePathname } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import PublishProductDialog from './PublishProductDialog';
 
 export default function Header() {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
   const { newMessage, newNotification, newOrders, markAllChatsAsRead } = useWebSocket();
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
 
   return (
     <View style={styles.wrapper}>
@@ -18,7 +20,7 @@ export default function Header() {
           <Text style={styles.brandText}>SkyVenda MZ</Text>
         </TouchableOpacity>
         <View style={styles.topActions}>
-          <TouchableOpacity style={styles.roundBtn} onPress={() => router.push('/publish-product')}>
+          <TouchableOpacity style={styles.roundBtn} onPress={() => setShowPublishDialog(true)}>
             <Feather name="plus" size={22} color="#374151" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.roundBtn} onPress={() => router.push('/search')}>
@@ -83,6 +85,16 @@ export default function Header() {
           )}
         </View>
       </View>
+
+      {/* Publish Product Dialog */}
+      <PublishProductDialog
+        visible={showPublishDialog}
+        onClose={() => setShowPublishDialog(false)}
+        onProductCreated={() => {
+          console.log('Product created successfully');
+          // Optionally refresh data or show success message
+        }}
+      />
     </View>
   )
 }

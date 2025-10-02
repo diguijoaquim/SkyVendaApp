@@ -8,6 +8,7 @@ import { useHome } from '@/contexts/HomeContext';
 import { getJson } from '@/services/api';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, ListRenderItemInfo, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import FriendsSuggestionSection from './FriendsSuggestionSection';
 import AdCard from './items/AdCard';
 import FriendSuggestionCard from './items/FriendSuggestionCard';
 import PostCard from './items/PostCard';
@@ -42,6 +43,7 @@ export default function DynamicFeed() {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [friendsSuggestions, setFriendsSuggestions] = useState<any[]>([]);
   const { upsertFeedProducts } = useHome();
   const { token } = useAuth();
   
@@ -145,9 +147,14 @@ export default function DynamicFeed() {
       if (DEBUG) console.log('[DynamicFeed] Fetching:', { reset, url, itemsCount: items.length, hasToken: !!token });
       
       // Use getJson which automatically includes the token
-      const data: FeedResponse = await getJson(url);
+      const data: FeedResponse & { friends_suggestion?: any[] } = await getJson(url);
 
       const preparedItems = (data.items || []).map(normalizeItem);
+      
+      // Capturar sugestões de amigos se disponíveis
+      if (data.friends_suggestion && Array.isArray(data.friends_suggestion)) {
+        setFriendsSuggestions(data.friends_suggestion);
+      }
       // Atualiza o cache global com produtos do feed
       try {
         const productPayload = preparedItems
@@ -269,7 +276,7 @@ export default function DynamicFeed() {
         case 'ad':
           return <View className='px-2'><AdCard data={item.data} /></View>
         case 'friend_suggestion':
-          return <FriendSuggestionCard data={item.data} />;
+          return <FriendSuggestionCard friend={item.data} />;
         default:
           return (
             <></>
@@ -290,8 +297,25 @@ export default function DynamicFeed() {
       <View className='px-2'>
         <FeaturedProducts />
       </View>
+      {friendsSuggestions.length > 0 && (
+        <FriendsSuggestionSection
+          friends={friendsSuggestions}
+          onFollow={(friendId) => {
+            console.log('Follow friend:', friendId);
+            // TODO: Implementar lógica de seguir
+          }}
+          onViewProfile={(friendId) => {
+            console.log('View profile:', friendId);
+            // TODO: Implementar navegação para perfil
+          }}
+          onSeeAll={() => {
+            console.log('See all friends');
+            // TODO: Implementar navegação para lista completa
+          }}
+        />
+      )}
     </View>
-  ), []);
+  ), [friendsSuggestions]);
 
   const ListEmpty = useMemo(() => (
     <View style={styles.emptyWrap}>

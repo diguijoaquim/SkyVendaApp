@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getJson } from '@/services/api';
-import { useLoading } from './LoadingContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { useLoading } from './LoadingContext';
 
 interface Product {
   id: number;
@@ -78,6 +78,7 @@ interface HomeContextType {
   getProductFromCache: (slug: string) => Product | ProductDetail | null;
   upsertProductDetail: (detail: ProductDetail) => void;
   ensureProductDetail: (slug: string, userId?: number) => Promise<ProductDetail | null>;
+  loadProductComments: (slug: string) => Promise<ProductDetail | null>;
 }
 
 export const HomeContext = createContext<HomeContextType | null>(null);
@@ -310,15 +311,11 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
     return null;
   }, [productDetailsBySlug, feedProductsBySlug, produtos, myproducts, provinceProducts]);
 
-  // Garante que detalhes estão no cache; evita re-fetch se já houver detalhe suficiente
-  const ensureProductDetail = useCallback(async (slug: string, userId?: number): Promise<ProductDetail | null> => {
+  // Função específica para buscar comentários de um produto
+  const loadProductComments = useCallback(async (slug: string): Promise<ProductDetail | null> => {
     if (!slug) return null;
-    const cached = productDetailsBySlug[slug] || (getProductFromCache(slug) as ProductDetail | null);
-    if (cached && (cached.description || cached.details)) {
-      return cached;
-    }
+    
     try {
-      // Usa endpoint com token opcional; se houver token, envia Authorization
       const headers = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
       const detail = await getJson<ProductDetail>(`/produtos/${slug}`, headers as any);
       if (detail) {
@@ -332,11 +329,35 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
         upsertProductDetail(normalized);
         return normalized;
       }
-      return cached ?? null;
+      return null;
     } catch (e) {
-      return cached ?? null;
+      console.log('Erro ao buscar comentários do produto:', e);
+      return null;
     }
-  }, [productDetailsBySlug, getProductFromCache, upsertProductDetail, token]);
+  }, [token, upsertProductDetail]);
+
+  // Garante que detalhes estão no cache; evita re-fetch se já houver detalhe suficiente
+  const ensureProductDetail = useCallback(async (slug: string, userId?: number): Promise<ProductDetail | null> => {
+    if (!slug) return null;
+    const cached = productDetailsBySlug[slug] || (getProductFromCache(slug) as ProductDetail | null);
+    
+    // Se já tem comentários, não precisa buscar novamente
+    if (cached && (cached.description || cached.details) && cached.comments && cached.comments.length > 0) {
+      return cached;
+    }
+    
+    // Se não tem comentários ou é vazio, busca os comentários usando a função específica
+    if (cached && (!cached.comments || cached.comments.length === 0)) {
+      return await loadProductComments(slug);
+    }
+    
+    // Se não tem cache ou não tem detalhes suficientes, busca normalmente
+    if (!cached || (!cached.description && !cached.details)) {
+      return await loadProductComments(slug);
+    }
+    
+    return cached;
+  }, [productDetailsBySlug, getProductFromCache, loadProductComments]);
 
   // Função para salvar dados no cache
   const saveToCache = async (key: string, data: any) => {
@@ -384,23 +405,29 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
         setProdutos(cachedProducts);
       }
       
-      // Tenta buscar dados da API (token opcional)
+      // Tenta buscar dados da API (token opcional) - SEM comentários na lista inicial
       try {
         await new Promise(resolve => setTimeout(resolve, 2000));
         const generalPath = `/produtos/?limit=8&offset=0`;
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
         const generalResp = await getJson<Product[]>(generalPath, headers ? { headers } : undefined).catch(() => [] as Product[]);
 
+        // Remove comentários da lista inicial para otimizar performance
+        const productsWithoutComments = (generalResp || []).map(product => ({
+          ...product,
+          comments: undefined // Remove comentários da lista inicial
+        }));
+
         // Debug: log uso de token e amostra de liked
-        console.log('[HomeContext] Fetched products', {
+        console.log('[HomeContext] Fetched products (without comments)', {
           usedToken: Boolean(token),
-          count: Array.isArray(generalResp) ? generalResp.length : 0,
-          sample: (generalResp || []).slice(0, 5).map(p => ({ id: p?.id, slug: p?.slug, liked: (p as any)?.liked })),
+          count: Array.isArray(productsWithoutComments) ? productsWithoutComments.length : 0,
+          sample: (productsWithoutComments || []).slice(0, 5).map(p => ({ id: p?.id, slug: p?.slug, liked: (p as any)?.liked })),
         });
 
-        setProdutos(generalResp);
+        setProdutos(productsWithoutComments);
         // Salva no cache
-        await saveToCache('products', generalResp);
+        await saveToCache('products', productsWithoutComments);
       } catch (apiError) {
         console.log('Erro na API, usando cache se disponível', apiError);
         // Se não tiver cache e deu erro, mantém array vazio
@@ -514,7 +541,8 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
         upsertFeedProducts,
         getProductFromCache,
         upsertProductDetail,
-        ensureProductDetail
+        ensureProductDetail,
+        loadProductComments
       }}
     >
       {children}

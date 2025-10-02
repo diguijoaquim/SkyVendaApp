@@ -121,7 +121,7 @@ function AppContent() {
                     options={{
                       headerShown: false,
                       title: 'Produto',
-                      animation: 'slide_from_right',
+                      animation: 'slide_from_bottom',
                       gestureEnabled: true,
                     }}
                   />

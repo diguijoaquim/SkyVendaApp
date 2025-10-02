@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { followUser, unfollowUser } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-type FriendData = {
+interface FriendSuggestion {
   id: number;
   name: string;
   username: string;
@@ -10,82 +11,120 @@ type FriendData = {
   cover: string | null;
   is_pro: boolean;
   time_joined: string;
-};
+  following: boolean;
+  followers: number;
+}
 
-type Props = {
-  data: FriendData;
-};
+interface FriendSuggestionCardProps {
+  friend: FriendSuggestion;
+  onFollow?: (friendId: number) => void;
+  onViewProfile?: (friendId: number) => void;
+}
 
-export default function FriendSuggestionCard({ data }: Props) {
-  const [following, setFollowing] = useState(false);
+export default function FriendSuggestionCard({ 
+  friend, 
+  onFollow, 
+  onViewProfile 
+}: FriendSuggestionCardProps) {
+  const [isFollowing, setIsFollowing] = useState(friend.following);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleUserPress = () => {
-    console.log('User pressed:', data.id);
-    // router.push(`/profile/${data.id}`);
+  const handleFollow = async () => {
+    if (isLoading) return;
+    
+    try {
+      setIsLoading(true);
+      
+      if (isFollowing) {
+        await unfollowUser(friend.id);
+        setIsFollowing(false);
+        Alert.alert('Sucesso', `Você deixou de seguir ${friend.name}`);
+      } else {
+        await followUser(friend.id);
+        setIsFollowing(true);
+        Alert.alert('Sucesso', `Você começou a seguir ${friend.name}`);
+      }
+      
+      if (onFollow) {
+        onFollow(friend.id);
+      }
+    } catch (error: any) {
+      console.error('Erro ao seguir/deixar de seguir:', error);
+      Alert.alert(
+        'Erro', 
+        error?.response?.data?.detail || 'Não foi possível seguir este usuário'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleFollowPress = () => {
-    setFollowing(!following);
-    // TODO: Implement follow/unfollow API call
+  const handleViewProfile = () => {
+    if (onViewProfile) {
+      onViewProfile(friend.id);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.suggestionLabel}>
-          <Ionicons name="people-outline" size={12} color="#6B7280" />
-          <Text style={styles.suggestionText}>Sugestão para você</Text>
+      <TouchableOpacity onPress={handleViewProfile} style={styles.profileContainer}>
+        <View style={styles.avatarContainer}>
+          <Image
+            source={{
+              uri: friend.avatar || 'https://via.placeholder.com/60x60?text=U'
+            }}
+            style={styles.avatar}
+          />
+          {friend.is_pro && (
+            <View style={styles.proBadge}>
+              <Ionicons name="star" size={12} color="#FFD700" />
+            </View>
+          )}
         </View>
-        <TouchableOpacity style={styles.closeButton}>
-          <Ionicons name="close" size={16} color="#6B7280" />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity onPress={handleUserPress} activeOpacity={0.9}>
-        {/* Cover Image */}
-        {data.cover && (
-          <Image source={{ uri: data.cover }} style={styles.coverImage} />
-        )}
-
-        {/* User Info */}
-        <View style={styles.userInfo}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{ 
-                uri: data.avatar || 'https://via.placeholder.com/60x60?text=U' 
-              }}
-              style={styles.avatar}
-            />
-            {data.is_pro && (
-              <View style={styles.proBadge}>
-                <Ionicons name="star" size={12} color="#FFFFFF" />
-              </View>
-            )}
-          </View>
-
-          <Text style={styles.name}>{data.name}</Text>
-          <Text style={styles.username}>@{data.username}</Text>
-          <Text style={styles.joinedTime}>Entrou {data.time_joined}</Text>
+        
+        <View style={styles.infoContainer}>
+          <Text style={styles.name} numberOfLines={1}>
+            {friend.name}
+          </Text>
+          <Text style={styles.username} numberOfLines={1}>
+            @{friend.username}
+          </Text>
+          <Text style={styles.timeJoined}>
+            Membro há {friend.time_joined}
+          </Text>
+          <Text style={styles.followersCount}>
+            {friend.followers} seguidor{friend.followers !== 1 ? 'es' : ''}
+          </Text>
         </View>
       </TouchableOpacity>
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
-        <TouchableOpacity 
-          style={[styles.followButton, following && styles.followingButton]}
-          onPress={handleFollowPress}
-        >
-          <Text style={[styles.followText, following && styles.followingText]}>
-            {following ? 'Seguindo' : 'Seguir'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.messageButton} onPress={handleUserPress}>
-          <Ionicons name="chatbubble-outline" size={16} color="#7C3AED" />
-          <Text style={styles.messageText}>Mensagem</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity 
+        style={[
+          styles.followButton,
+          isFollowing && styles.followingButton
+        ]}
+        onPress={handleFollow}
+        activeOpacity={0.8}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#8B5CF6" />
+        ) : (
+          <>
+            <Ionicons 
+              name={isFollowing ? "checkmark" : "person-add"} 
+              size={16} 
+              color={isFollowing ? "#10B981" : "#8B5CF6"} 
+            />
+            <Text style={[
+              styles.followText,
+              isFollowing && styles.followingText
+            ]}>
+              {isFollowing ? 'Seguindo' : 'Seguir'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -93,124 +132,95 @@ export default function FriendSuggestionCard({ data }: Props) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    marginBottom: 12,
-    borderRadius: 12,
-    overflow: 'hidden',
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+    width: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  suggestionLabel: {
+  profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  suggestionText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  coverImage: {
-    width: '100%',
-    height: 120,
-    backgroundColor: '#F3F4F6',
-  },
-  userInfo: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 20,
+    marginBottom: 12,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginRight: 12,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#F3F4F6',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
   },
   proBadge: {
     position: 'absolute',
-    bottom: -2,
+    top: -2,
     right: -2,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#FFD700',
     borderRadius: 10,
     width: 20,
     height: 20,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
+  infoContainer: {
+    flex: 1,
+  },
   name: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   username: {
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 4,
   },
-  joinedTime: {
+  timeJoined: {
     fontSize: 12,
     color: '#9CA3AF',
+    marginBottom: 2,
   },
-  actions: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
+  followersCount: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   followButton: {
-    flex: 1,
-    backgroundColor: '#7C3AED',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  followingButton: {
-    backgroundColor: '#E5E7EB',
-  },
-  followText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  followingText: {
-    color: '#6B7280',
-  },
-  messageButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#7C3AED',
+    borderColor: '#E5E7EB',
   },
-  messageText: {
-    color: '#7C3AED',
+  followText: {
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
+    color: '#8B5CF6',
+    marginLeft: 4,
+  },
+  followingButton: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#10B981',
+  },
+  followingText: {
+    color: '#10B981',
   },
 });
