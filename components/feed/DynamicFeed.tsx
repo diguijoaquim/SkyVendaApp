@@ -1,10 +1,11 @@
-import base_url from '@/api/api';
 import BannerSlider from '@/components/ads/banner_slider';
 import NewPostInput from '@/components/new_post_input';
 import Nhonguistas from '@/components/nhonguistas';
 import FeaturedProducts from '@/components/products/FeaturedProducts';
 import News from '@/components/products/news';
+import { useAuth } from '@/contexts/AuthContext';
 import { useHome } from '@/contexts/HomeContext';
+import { getJson } from '@/services/api';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, ListRenderItemInfo, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import AdCard from './items/AdCard';
@@ -42,12 +43,12 @@ export default function DynamicFeed() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { upsertFeedProducts } = useHome();
+  const { token } = useAuth();
   
   // Refs para controle de paginação
   const isFirstLoad = useRef(true);
   const lastPaginateAt = useRef(0);
   const paginationInProgress = useRef(false);
-  const requestController = useRef<AbortController | null>(null);
 
   const keyExtractor = useCallback((item: FeedItem, index: number) => {
     // Usar ID estável; evitar timestamp para não regenerar chaves
@@ -115,12 +116,6 @@ export default function DynamicFeed() {
       return;
     }
     
-    // Cancelar request anterior se existir
-    if (requestController.current) {
-      requestController.current.abort();
-    }
-    
-    requestController.current = new AbortController();
     paginationInProgress.current = true;
     lastPaginateAt.current = now;
     
@@ -146,22 +141,11 @@ export default function DynamicFeed() {
       if (cursorToSend) params.set('cursor', cursorToSend);
       params.set('limit', '20');
       
-      const url = `${base_url}/feed?${params.toString()}`;
-      if (DEBUG) console.log('[DynamicFeed] Fetching:', { reset, url, itemsCount: items.length });
+      const url = `/feed?${params.toString()}`;
+      if (DEBUG) console.log('[DynamicFeed] Fetching:', { reset, url, itemsCount: items.length, hasToken: !!token });
       
-      // Set timeout using AbortController
-      const timeoutId = setTimeout(() => {
-        requestController.current?.abort();
-      }, 10000); // 10s timeout
-      
-      const res = await fetch(url, { 
-        signal: requestController.current.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: FeedResponse = await res.json();
+      // Use getJson which automatically includes the token
+      const data: FeedResponse = await getJson(url);
 
       const preparedItems = (data.items || []).map(normalizeItem);
       // Atualiza o cache global com produtos do feed
@@ -345,14 +329,6 @@ export default function DynamicFeed() {
     return null; // Sem botão; carregamento é automático
   }, [loadingMore, FooterSkeleton]);
 
-  // Limpar controller ao desmontar
-  useEffect(() => {
-    return () => {
-      if (requestController.current) {
-        requestController.current.abort();
-      }
-    };
-  }, []);
 
   return (
     <FlatList

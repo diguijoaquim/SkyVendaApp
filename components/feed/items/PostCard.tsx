@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '@/contexts/AuthContext';
+import { postJson } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useState } from 'react';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type PostData = {
   id: number;
   content: string;
   gradient_style: string;
   time: string;
+  likes?: number;
+  liked?: boolean;
   user: {
     id: number;
     name: string;
@@ -20,13 +24,46 @@ type Props = {
 };
 
 export default function PostCard({ data }: Props) {
-  const [liked, setLiked] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const [liked, setLiked] = useState(data.liked || false);
+  const [likes, setLikes] = useState(data.likes || 0);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
 
   const handleUserPress = () => {
     console.log('User pressed:', data.user.id);
     // router.push(`/profile/${data.user.id}`);
   };
+
+  const toggleLike = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Necessário', 'Você precisa fazer login para curtir posts');
+      return;
+    }
+    
+    if (likeBusy) return;
+    
+    try {
+      setLikeBusy(true);
+      // Optimistic update
+      const newLiked = !liked;
+      const newLikes = liked ? likes - 1 : likes + 1;
+      
+      setLiked(newLiked);
+      setLikes(newLikes);
+      
+      // Call API (assuming there's a posts like endpoint)
+      await postJson(`/posts/${data.id}/like`, {});
+    } catch (error) {
+      console.log('Error toggling like:', error);
+      // Rollback on error
+      setLiked(!liked);
+      setLikes(liked ? likes + 1 : likes - 1);
+      Alert.alert('Erro', 'Não foi possível curtir o post');
+    } finally {
+      setLikeBusy(false);
+    }
+  }, [isAuthenticated, liked, likes, likeBusy, data.id]);
 
   const getGradientColors = (style: string): [string, string] => {
     const gradients: { [key: string]: [string, string] } = {
@@ -77,7 +114,8 @@ export default function PostCard({ data }: Props) {
         <View style={styles.leftActions}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => setLiked(!liked)}
+            onPress={toggleLike}
+            disabled={likeBusy}
           >
             <Ionicons 
               name={liked ? "heart" : "heart-outline"} 

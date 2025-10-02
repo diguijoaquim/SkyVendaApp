@@ -1,8 +1,10 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { postJson } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -17,6 +19,7 @@ export type Product = {
   district?: string;
   time?: string;
   likes?: number;
+  liked?: boolean;
   views?: number;
   slug: string;
   user?: {
@@ -37,7 +40,9 @@ function formatMZN(value?: number) {
 
 export default function FullViewItem({ products }: Props) {
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const [imageIndices, setImageIndices] = useState<{ [key: number]: number }>({});
+  const [productLikes, setProductLikes] = useState<{ [key: number]: { liked: boolean; likes: number } }>({});
 
   const setCurrentImageIndex = (productId: number, index: number) => {
     setImageIndices(prev => ({ ...prev, [productId]: index }));
@@ -46,6 +51,37 @@ export default function FullViewItem({ products }: Props) {
   const getCurrentImageIndex = (productId: number) => {
     return imageIndices[productId] || 0;
   };
+
+  const toggleLike = useCallback(async (product: Product) => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Necessário', 'Você precisa fazer login para curtir produtos');
+      return;
+    }
+    
+    const currentLikes = productLikes[product.id] || { liked: product.liked || false, likes: product.likes || 0 };
+    
+    try {
+      // Optimistic update
+      const newLiked = !currentLikes.liked;
+      const newLikes = currentLikes.liked ? currentLikes.likes - 1 : currentLikes.likes + 1;
+      
+      setProductLikes(prev => ({
+        ...prev,
+        [product.id]: { liked: newLiked, likes: newLikes }
+      }));
+      
+      // Call API
+      await postJson(`/produtos/${product.slug}/like`, {});
+    } catch (error) {
+      console.log('Error toggling like:', error);
+      // Rollback on error
+      setProductLikes(prev => ({
+        ...prev,
+        [product.id]: { liked: currentLikes.liked, likes: currentLikes.likes }
+      }));
+      Alert.alert('Erro', 'Não foi possível curtir o produto');
+    }
+  }, [isAuthenticated, productLikes]);
 
   const renderProduct = (product: Product) => {
     const images = useMemo(() => {
@@ -150,8 +186,15 @@ export default function FullViewItem({ products }: Props) {
         {/* Action Bar */}
         <View style={styles.actionBar}>
           <View style={styles.leftActions}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="heart-outline" size={24} color="#374151" />
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => toggleLike(product)}
+            >
+              <Ionicons 
+                name={(productLikes[product.id]?.liked || product.liked) ? 'heart' : 'heart-outline'} 
+                size={24} 
+                color={(productLikes[product.id]?.liked || product.liked) ? '#EF4444' : '#374151'} 
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="chatbubble-outline" size={22} color="#374151" />
@@ -168,7 +211,7 @@ export default function FullViewItem({ products }: Props) {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <Text style={styles.statsText}>
-            {product.likes || 0} curtidas • {product.views || 0} visualizações
+            {productLikes[product.id]?.likes || product.likes || 0} curtidas • {product.views || 0} visualizações
           </Text>
         </View>
 

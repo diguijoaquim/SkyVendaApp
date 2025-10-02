@@ -1,4 +1,5 @@
 import ProductCard from '@/components/ProductCard';
+import { useAuth } from '@/contexts/AuthContext';
 import { getJson } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -31,6 +32,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function FeaturedProducts() {
   const router = useRouter();
+  const { token } = useAuth();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -42,9 +44,11 @@ export default function FeaturedProducts() {
   const fetchPage = useCallback(async (pageNum: number) => {
     const offset = (pageNum - 1) * ITEMS_PER_PAGE;
     // onrender API: /produtos/?limit=30&offset=0
-    const data = await getJson<Produto[]>(`/produtos/?limit=${ITEMS_PER_PAGE}&offset=${offset}`);
+    const data = await getJson<Produto[]>(`/produtos/?limit=${ITEMS_PER_PAGE}&offset=${offset}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
     return Array.isArray(data) ? data : [];
-  }, []);
+  }, [token]);
 
   const initialLoad = useCallback(async () => {
     try {

@@ -1,8 +1,10 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { postJson } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // No need for Dimensions after switching to full-width image style
 
@@ -17,6 +19,7 @@ type ProductData = {
   district: string;
   time: string;
   likes: number;
+  liked?: boolean;
   views: string;
   slug: string;
   user: {
@@ -32,8 +35,11 @@ type Props = {
 
 export default function ProductCard({ data }: Props) {
   const router = useRouter();
+  const { token, isAuthenticated } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(data.liked || false);
+  const [likes, setLikes] = useState(data.likes || 0);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
 
   const images = (data.images && data.images.length > 0)
@@ -48,6 +54,36 @@ export default function ProductCard({ data }: Props) {
     console.log('User pressed:', data.user.id);
     // router.push(`/profile/${data.user.id}`);
   };
+
+  const toggleLike = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Necessário', 'Você precisa fazer login para curtir produtos');
+      return;
+    }
+    
+    if (likeBusy) return;
+    
+    try {
+      setLikeBusy(true);
+      // Optimistic update
+      const newLiked = !liked;
+      const newLikes = liked ? likes - 1 : likes + 1;
+      
+      setLiked(newLiked);
+      setLikes(newLikes);
+      
+      // Call API
+      await postJson(`/produtos/${data.slug}/like`, {});
+    } catch (error) {
+      console.log('Error toggling like:', error);
+      // Rollback on error
+      setLiked(!liked);
+      setLikes(liked ? likes + 1 : likes - 1);
+      Alert.alert('Erro', 'Não foi possível curtir o produto');
+    } finally {
+      setLikeBusy(false);
+    }
+  }, [isAuthenticated, liked, likes, likeBusy, data.slug]);
 
   const formatMZN = (value?: number) => {
     if (typeof value !== 'number') return '0,00 MZN';
@@ -138,7 +174,8 @@ export default function ProductCard({ data }: Props) {
         <View style={styles.leftActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => setLiked(!liked)}
+            onPress={toggleLike}
+            disabled={likeBusy}
           >
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}
@@ -168,7 +205,7 @@ export default function ProductCard({ data }: Props) {
       {/* Stats */}
       <View style={styles.statsContainer}>
         <Text style={styles.statsText}>
-          {(data.likes ?? 0)} curtidas • {(data.views ?? 0)} visualizações
+          {likes} curtidas • {(data.views ?? 0)} visualizações
         </Text>
       </View>
 

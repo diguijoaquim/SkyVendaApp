@@ -1,5 +1,4 @@
 import ContentLoader, { Rect } from '@/components/skeletons/ContentLoader'
-import { getJson } from '@/services/api'
 import { Ionicons } from '@expo/vector-icons'
 import axios from 'axios'
 import { Image } from 'expo-image'
@@ -42,6 +41,7 @@ type RealAd = {
   criado_em?: string
   cliques?: number
   usuario_id?: number
+  slug?: string
 }
 
 const { width } = Dimensions.get('window')
@@ -65,32 +65,6 @@ export default function BannerSlider() {
     return shuffled
   }
 
-  // Function to get product slug by produto_id
-  const getProductSlug = async (produtoId: number): Promise<string | null> => {
-    try {
-      console.log('🔍 Fetching product slug for ID:', produtoId)
-      // Try different endpoints that might work
-      let product = null
-      
-      // Try the direct product endpoint first
-      try {
-        product = await getJson<any>(`/produtos/${produtoId}`)
-        console.log('📦 Product data from /produtos/:id:', product)
-      } catch (e) {
-        console.log('⚠️ /produtos/:id failed, trying /produtos/detalhe/:id')
-        // Try the detail endpoint
-        product = await getJson<any>(`/produtos/detalhe/${produtoId}`)
-        console.log('📦 Product data from /produtos/detalhe/:id:', product)
-      }
-      
-      const slug = product?.slug || null
-      console.log('🏷️ Extracted slug:', slug)
-      return slug
-    } catch (error) {
-      console.log('❌ Error fetching product slug:', error)
-      return null
-    }
-  }
 
   // Get badge info based on ad type
   const getBadgeInfo = (tipoAnuncio?: string) => {
@@ -144,6 +118,19 @@ export default function BannerSlider() {
           allData: response.data
         })
         
+        // Log each ad to see the structure
+        response.data?.forEach((ad, index) => {
+          console.log(`🔍 Ad ${index}:`, {
+            id: ad.id,
+            tipo: ad.tipo,
+            titulo: ad.titulo,
+            nome: ad.nome,
+            slug: ad.slug,
+            link: ad.link,
+            produto_id: ad.produto_id
+          });
+        });
+        
         if (!mounted) return
         
         // Convert real ads to Ad format
@@ -177,6 +164,7 @@ export default function BannerSlider() {
             ativo: ad.ativo,
             produto_id: ad.produto_id,
             link: ad.link,
+            slug: ad.slug,
             fullAd: ad
           });
           
@@ -189,6 +177,7 @@ export default function BannerSlider() {
             location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique',
             price: ad.preco,
             produto_id: ad.produto_id,
+            slug: ad.slug, // For anuncio1, this will be the product slug
           };
         })
         
@@ -256,7 +245,8 @@ export default function BannerSlider() {
         id: item.id,
         title: item.title,
         produto_id: item.produto_id,
-        link: item.link
+        link: item.link,
+        slug: item.slug
       })
       
       // Check if it's an external link (anuncio2) or product navigation (anuncio1)
@@ -268,25 +258,17 @@ export default function BannerSlider() {
           console.log('❌ Error opening external link:', error)
           Alert.alert('Erro', 'Não foi possível abrir o link')
         }
-      } else if (item.produto_id) {
-        console.log('🛍️ Navigating to product (anuncio1) with ID:', item.produto_id)
+      } else if (item.slug) {
+        console.log('🛍️ Navigating to product (anuncio1) with slug:', item.slug)
         try {
-          // Try to get the product slug
-          const slug = await getProductSlug(item.produto_id)
-          console.log('📝 Retrieved slug:', slug)
-          if (slug) {
-            console.log('🚀 Navigating to:', `/product/${slug}`)
-            router.push(`/product/${slug}`)
-          } else {
-            console.log('❌ Could not find product slug for produto_id:', item.produto_id)
-            Alert.alert('Erro', 'Não foi possível encontrar o produto')
-          }
+          console.log('🚀 Navigating to:', `/product/${item.slug}`)
+          router.push(`/product/${item.slug}`)
         } catch (error) {
           console.log('❌ Error navigating to product:', error)
           Alert.alert('Erro', 'Erro ao navegar para o produto')
         }
       } else {
-        console.log('⚠️ No link or produto_id found for ad:', item)
+        console.log('⚠️ No link or slug found for ad:', item)
         Alert.alert('Aviso', 'Este anúncio não tem link ou produto associado')
       }
     }
