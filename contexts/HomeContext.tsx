@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getJson } from '@/services/api';
 import { useLoading } from './LoadingContext';
+import { useAuth } from './AuthContext';
 
 interface Product {
   id: number;
@@ -90,6 +91,7 @@ export const useHome = () => {
 };
 
 const HomeProvider = ({ children }: { children: React.ReactNode }) => {
+  const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [produtos, setProdutos] = useState<Product[]>([]);
@@ -316,16 +318,25 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
       return cached;
     }
     try {
-      const detail = await getJson<ProductDetail>(`/produtos/detalhe/${slug}?user_id=${userId ?? 0}`);
+      // Usa endpoint com token opcional; se houver token, envia Authorization
+      const headers = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+      const detail = await getJson<ProductDetail>(`/produtos/${slug}`, headers as any);
       if (detail) {
-        upsertProductDetail(detail);
-        return detail;
+        // Normalizar tipos numéricos vindos como string
+        const normalized: ProductDetail = {
+          ...detail,
+          likes: Number((detail as any)?.likes ?? 0),
+          views: Number((detail as any)?.views ?? 0),
+          liked: Boolean((detail as any)?.liked),
+        } as any;
+        upsertProductDetail(normalized);
+        return normalized;
       }
       return cached ?? null;
     } catch (e) {
       return cached ?? null;
     }
-  }, [productDetailsBySlug, getProductFromCache, upsertProductDetail]);
+  }, [productDetailsBySlug, getProductFromCache, upsertProductDetail, token]);
 
   // Função para salvar dados no cache
   const saveToCache = async (key: string, data: any) => {
@@ -373,16 +384,23 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
         setProdutos(cachedProducts);
       }
       
-      // Tenta buscar dados da API
+      // Tenta buscar dados da API (token opcional)
       try {
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const basePath = user_id && user_id > 0 
-          ? `/produtos/?user_id=${user_id}&limit=4&offset=0`
-          : `/produtos/?limit=4&offset=0`;
-        const response = await getJson<Product[]>(basePath);
-        setProdutos(response);
+        const generalPath = `/produtos/?limit=8&offset=0`;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const generalResp = await getJson<Product[]>(generalPath, headers ? { headers } : undefined).catch(() => [] as Product[]);
+
+        // Debug: log uso de token e amostra de liked
+        console.log('[HomeContext] Fetched products', {
+          usedToken: Boolean(token),
+          count: Array.isArray(generalResp) ? generalResp.length : 0,
+          sample: (generalResp || []).slice(0, 5).map(p => ({ id: p?.id, slug: p?.slug, liked: (p as any)?.liked })),
+        });
+
+        setProdutos(generalResp);
         // Salva no cache
-        await saveToCache('products', response);
+        await saveToCache('products', generalResp);
       } catch (apiError) {
         console.log('Erro na API, usando cache se disponível', apiError);
         // Se não tiver cache e deu erro, mantém array vazio
@@ -416,7 +434,7 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error('Erro ao carregar anúncios:', err);
     }
-  }, [user_id, setIsLoading, produtos]);
+  }, [user_id, setIsLoading, produtos, token]);
 
   // Funções auxiliares para controle de loading
   const startLoading = useCallback(() => {

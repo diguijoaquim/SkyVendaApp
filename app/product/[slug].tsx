@@ -75,13 +75,15 @@ export default function ProductScreen() {
       const detail = await ensureProductDetail(slug, 0);
       if (detail) {
         setProduct(detail as ProdutoDetalhe);
+        // Debug: verificar liked e token
+        console.log('[ProductScreen] detail loaded', { slug, liked: (detail as any)?.liked, hasToken: !!token });
       }
     } catch (e: any) {
       setError(e?.message || 'Erro ao carregar produto');
     } finally {
       setLoading(false);
     }
-  }, [slug, getProductFromCache, ensureProductDetail]);
+  }, [slug, getProductFromCache, ensureProductDetail, token]);
 
   useEffect(() => {
     // Only fetch if we don't have a product or if slug changed
@@ -184,6 +186,11 @@ export default function ProductScreen() {
 
   const toggleLike = useCallback(async () => {
     if (!product || likeBusy) return;
+    if (!isAuthenticated || !token) {
+      Alert.alert('Atenção', 'Precisa fazer login para curtir produtos');
+      router.push('/login');
+      return;
+    }
     try {
       setLikeBusy(true);
       // otimismo
@@ -191,14 +198,14 @@ export default function ProductScreen() {
       setProduct(optimistic);
       // propaga para o cache global
       upsertProductDetail(optimistic as any);
-      await postJson(`/produtos/${product.slug}/like`, {});
+      await postJson(`/produtos/${product.slug}/like`, {}, { headers: { Authorization: `Bearer ${token}` } });
     } catch {
       // rollback simples
       setProduct(p => (p ? { ...p, liked: !p.liked, likes: (p.likes || 0) + (p.liked ? -1 : 1) } : p));
     } finally {
       setLikeBusy(false);
     }
-  }, [product, likeBusy, upsertProductDetail]);
+  }, [product, likeBusy, upsertProductDetail, isAuthenticated, token, router]);
 
   if (loading) {
     return (
@@ -286,20 +293,32 @@ export default function ProductScreen() {
           </View>
         </View>
 
-        {/* Stats */}
+        {/* Stats (clickable) */}
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 ,height:50}}>
-          <View style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 24, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Ionicons name="heart-outline" size={24} color="#374151" />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleLike}
+            style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 24, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <Ionicons name={product.liked ? 'heart' : 'heart-outline'} size={24} color={product.liked ? '#DC2626' : '#374151'} />
             <Text style={{ color: '#374151', fontWeight: '600' }}>{product.likes || 0}</Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => Alert.alert('Visualizações', 'Em breve: lista de visualizações')}
+            style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
             <Ionicons name="eye-outline" size={24} color="#374151" />
             <Text style={{ color: '#374151', fontWeight: '600' }}>{product.views || 0}</Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => Alert.alert('Comentários', 'Em breve: seção de comentários')}
+            style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
             <Ionicons name="chatbubble-ellipses-outline" size={24} color="#374151" />
             <Text style={{ color: '#374151', fontWeight: '600' }}>{product.comments?.length || 0}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Quantity */}
