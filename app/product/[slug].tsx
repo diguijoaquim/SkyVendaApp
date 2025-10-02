@@ -236,11 +236,13 @@ export default function ProductScreen() {
           location: ad.localizacao && ad.localizacao !== 'null' ? ad.localizacao : 'Moçambique',
           price: Number(ad.preco ?? 0),
           produto_id: ad.produto_id,
+          slug: ad.slug,
+          link: ad.link,
         }));
         const shuffled = shuffleArray(normalized);
         setAds(shuffled);
       } catch (e) {
-        // noop
+        console.error('Erro ao carregar anúncios:', e);
       } finally {
         setAdsLoading(false);
       }
@@ -647,11 +649,16 @@ export default function ProductScreen() {
                   activeOpacity={0.85}
                   onPress={async () => {
                     try {
-                      if (item.slug) {
-                        router.push(`/product/${item.slug}`);
-                      } else if (item.link) {
-                        await Linking.openURL(item.link);
+                      const slug = String(item.slug || '').trim();
+                      if (slug) {
+                        router.push({ pathname: '/product/[slug]', params: { slug } });
+                        return;
                       }
+                      if (item.link) {
+                        await Linking.openURL(item.link);
+                        return;
+                      }
+                      Alert.alert('Aviso', 'Anúncio sem slug ou link');
                     } catch (e) {
                       Alert.alert('Erro', 'Não foi possível abrir o anúncio');
                     }
