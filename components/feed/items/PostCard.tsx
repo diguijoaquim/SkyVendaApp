@@ -4,8 +4,9 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useHome } from '@/contexts';
-import React, { useCallback, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, Image, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type PostData = {
   id: number;
@@ -29,7 +30,7 @@ type Props = { data: PostData };
 
 export default function PostCard({ data }: Props) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { upsertPostDetailById } = useHome() as any;
   const [liked, setLiked] = useState(data.liked || false);
   const [likes, setLikes] = useState(data.likes || 0);
@@ -143,6 +144,43 @@ export default function PostCard({ data }: Props) {
     router.push({ pathname: '/post', params: { id: String(data.id) } });
   }, [router, data.id, data.content, data.gradient_style, data.time, data.user, data.liked, data.likes, upsertPostDetailById]);
 
+  const isOwner = user?.id === data.user?.id;
+
+  const handleEdit = useCallback(() => {
+    router.push({ pathname: '/posts/editar/[id]', params: { id: String(data.id) } });
+  }, [router, data.id]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert('Eliminar publicação', 'Tem certeza que deseja eliminar esta publicação?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => Alert.alert('Eliminar', 'Implementar chamada de API de exclusão.') },
+    ]);
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    try {
+      const url = `https://skyvenda.com/post/${data.id}`;
+      await Share.share({ message: `${data.content} - ${url}` });
+    } catch {}
+  }, [data.id, data.content]);
+
+  const handleReport = useCallback(() => {
+    Alert.alert('Denunciar', 'Obrigado pelo seu feedback. Vamos analisar a sua denúncia.');
+  }, []);
+
+  const menuItems = useMemo(() => {
+    if (isOwner) {
+      return [
+        { key: 'edit', label: 'Editar', onPress: handleEdit },
+        { key: 'delete', label: 'Eliminar', destructive: true, onPress: handleDelete },
+      ];
+    }
+    return [
+      { key: 'share', label: 'Partilhar', onPress: handleShare },
+      { key: 'report', label: 'Denunciar', destructive: true, onPress: handleReport },
+    ];
+  }, [isOwner, handleEdit, handleDelete, handleShare, handleReport]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -195,9 +233,20 @@ export default function PostCard({ data }: Props) {
               {following ? 'Seguindo' : 'Seguir'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-          </TouchableOpacity>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <View style={styles.moreButton}>
+                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
+              </View>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {menuItems.map((it) => (
+                <DropdownMenuItem key={it.key} destructive={it.destructive} onSelect={it.onPress}>
+                  {it.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </View>
       </View>
 

@@ -3,8 +3,9 @@ import { postJson } from '@/services/api';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, Image, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // No need for Dimensions after switching to full-width image style
 
@@ -39,7 +40,7 @@ type Props = {
 
 export default function ProductCard({ data }: Props) {
   const router = useRouter();
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [liked, setLiked] = useState(data.liked || false);
   const [likes, setLikes] = useState(data.likes || 0);
@@ -114,6 +115,48 @@ export default function ProductCard({ data }: Props) {
     try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
   };
 
+  const isOwner = user?.id === data.user?.id;
+
+  const handleEdit = useCallback(() => {
+    router.push({ pathname: '/(produtos)/editar/[slug]', params: { slug: data.slug } });
+  }, [router, data.slug]);
+
+  const handleBoost = useCallback(() => {
+    router.push({ pathname: '/(produtos)/anunciar/[id]', params: { id: String(data.id) } });
+  }, [router, data.id]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert('Eliminar produto', 'Tem certeza que deseja eliminar este produto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => Alert.alert('Eliminar', 'Implementar chamada de API de exclusão.') },
+    ]);
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    try {
+      const url = `https://skyvenda.com/produto/${data.slug}`;
+      await Share.share({ message: `${data.title} - ${url}` });
+    } catch {}
+  }, [data.slug, data.title]);
+
+  const handleReport = useCallback(() => {
+    Alert.alert('Denunciar', 'Obrigado pelo seu feedback. Vamos analisar a sua denúncia.');
+  }, []);
+
+  const menuItems = useMemo(() => {
+    if (isOwner) {
+      return [
+        { key: 'edit', label: 'Editar', onPress: handleEdit },
+        { key: 'delete', label: 'Eliminar', destructive: true, onPress: handleDelete },
+        { key: 'boost', label: 'Turbinar anúncio', onPress: handleBoost },
+      ];
+    }
+    return [
+      { key: 'share', label: 'Partilhar', onPress: handleShare },
+      { key: 'report', label: 'Denunciar', destructive: true, onPress: handleReport },
+    ];
+  }, [isOwner, handleEdit, handleDelete, handleBoost, handleShare, handleReport]);
+
   return (
     <View style={styles.container}>
       {/* Header - User Info */}
@@ -164,9 +207,20 @@ export default function ProductCard({ data }: Props) {
           <TouchableOpacity onPress={toggleFollowUser} style={{ marginRight: 8 }}>
             <Text style={{ fontSize: 12, color: '#111827', fontWeight: '700' }}>{following ? 'Seguindo' : 'Seguir'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-          </TouchableOpacity>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <View style={styles.moreButton}>
+                <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
+              </View>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {menuItems.map((it) => (
+                <DropdownMenuItem key={it.key} destructive={it.destructive} onSelect={it.onPress}>
+                  {it.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </View>
       </View>
 

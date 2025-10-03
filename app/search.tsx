@@ -64,10 +64,17 @@ export default function SearchScreen() {
       // Atualiza sugestões baseadas no histórico
       fetchSuggestionsFromHistory();
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro na pesquisa:', err);
-      setError('Erro ao carregar os resultados. Tente novamente.');
-      setProducts([]);
+      // Se a API responder 404/204, tratamos como "nenhum resultado" em vez de erro visual
+      const status = err?.response?.status;
+      if (status === 404 || status === 204) {
+        setProducts([]);
+        setError(null);
+      } else {
+        setError('Não foi possível carregar os resultados.');
+        setProducts([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -360,23 +367,8 @@ export default function SearchScreen() {
             ))}
           </View>
         ) : error ? (
-          <View style={styles.errorContainer}>
-            <View style={styles.errorCard}>
-              <Feather name="alert-circle" size={24} color="#EF4444" />
-              <Text style={styles.errorTitle}>Erro na pesquisa</Text>
-              <Text style={styles.errorMessage}>{error}</Text>
-              <View style={styles.suggestedContainer}>
-                <Text style={styles.suggestedTitle}>Tente pesquisar por:</Text>
-                <FlatList
-                  data={suggestedSearches}
-                  renderItem={renderSuggestedSearch}
-                  keyExtractor={(item) => item}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.suggestedList}
-                />
-              </View>
-            </View>
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>{error}</Text>
           </View>
         ) : products.length > 0 ? (
           <View style={styles.resultsContainer}>
@@ -392,22 +384,10 @@ export default function SearchScreen() {
               ))}
             </View>
           </View>
-        ) : initialQuery ? (
+        ) : (initialQuery || hasSearched) ? (
           <View style={styles.noResultsContainer}>
-            <Text style={styles.noResultsText}>
-              Nenhum resultado encontrado para "{initialQuery}". Tente outra pesquisa.
-            </Text>
-            <View style={styles.suggestedContainer}>
-              <Text style={styles.suggestedTitle}>Tente pesquisar por:</Text>
-              <FlatList
-                data={suggestedSearches}
-                renderItem={renderSuggestedSearch}
-                keyExtractor={(item) => item}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.suggestedList}
-              />
-            </View>
+            <Text style={[styles.noResultsText, { fontWeight: '700', color: '#111827', marginBottom: 4 }]}>Nenhum resultado</Text>
+            <Text style={styles.noResultsText}>Tente outra pesquisa{initialQuery ? ` para "${initialQuery}"` : ''}.</Text>
           </View>
         ) : null}
 

@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { getJson, putMultipart } from '@/services/api';
+import PostCard from '@/components/feed/items/PostCard';
 import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,6 +64,10 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [postsPage, setPostsPage] = useState<number>(1);
+  const [postsHasMore, setPostsHasMore] = useState<boolean>(true);
+  const [postsLoading, setPostsLoading] = useState<boolean>(false);
   const [tab, setTab] = useState<'produtos' | 'publicacoes' | 'seguidores'>('produtos');
   const [isMyProfile, setIsMyProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -125,6 +130,76 @@ export default function ProfileScreen() {
     load();
     return () => { mounted = false };
   }, [username, user]);
+
+  // Carregar publicações do usuário (filtra por autor no cliente)
+  const fetchUserPosts = useCallback(async (reset = false) => {
+    if (!profile?.username) return;
+    if (postsLoading) return;
+    try {
+      setPostsLoading(true);
+      const page = reset ? 1 : postsPage;
+      const perPage = 20;
+      const resp: any = await getJson(`/publicacoes/listar?page=${page}&per_page=${perPage}`);
+      const list = Array.isArray(resp?.publicacoes) ? resp.publicacoes : [];
+      // Support both shapes: { usuario: {...} } and { publicador: {...} }
+      const filtered = list.filter((p: any) => {
+        const author = p?.usuario || p?.publicador || {};
+        const authorUsername = (author?.username || '').toLowerCase();
+        const authorId = author?.id;
+        const byUsername = authorUsername && authorUsername === profile.username?.toLowerCase();
+        const byId = typeof authorId === 'number' && typeof profile?.id === 'number' && authorId === profile.id;
+        return byUsername || byId;
+      });
+      const mapped = filtered.map((p: any) => {
+        const author = p?.usuario || p?.publicador || {};
+        const likes = p.likes_count ?? p.total_likes ?? 0;
+        const deu_like = p.liked ?? p.deu_like ?? false;
+        const time = p.tempo || p.data_criacao || '';
+        return {
+        id: p.id,
+        content: p.conteudo,
+        gradient_style: p.gradient_style || 'default',
+        time,
+        likes: Number(likes || 0),
+        liked: Boolean(deu_like),
+        user: {
+          id: author?.id,
+          name: author?.nome || author?.username,
+          username: author?.username,
+          avatar: author?.foto_perfil || null,
+          tipo: undefined,
+          conta_pro: undefined,
+          is_following: undefined,
+        },
+      };
+      });
+
+      setPosts(prev => reset ? mapped : [...prev, ...mapped]);
+      const total = Number(resp?.total || 0);
+      const nextPage = page + 1;
+      const totalPages = Number(resp?.total_pages || 1);
+      setPostsHasMore(nextPage <= totalPages);
+      setPostsPage(nextPage);
+    } catch (e) {
+      setPostsHasMore(false);
+    } finally {
+      setPostsLoading(false);
+    }
+  }, [profile?.username, postsLoading, postsPage]);
+
+  useEffect(() => {
+    // Reset posts when username changes
+    setPosts([]);
+    setPostsPage(1);
+    setPostsHasMore(true);
+    if (tab === 'publicacoes') fetchUserPosts(true);
+  }, [profile?.username]);
+
+  useEffect(() => {
+    if (tab === 'publicacoes' && posts.length === 0 && !postsLoading) {
+      fetchUserPosts(true);
+    }
+  }, [tab]);
 
   const avatar = useMemo(() => {
     return (
@@ -467,9 +542,37 @@ export default function ProfileScreen() {
           )}
 
           {tab === 'publicacoes' && (
-            <View className="items-center py-10">
-              <Ionicons name="document-text-outline" size={36} color="#9CA3AF" />
-              <Text className="mt-2 text-gray-500">Publicações em breve</Text>
+            <View>
+              {posts.length === 0 && postsLoading ? (
+                <View className="items-center py-10">
+                  <ActivityIndicator color="#4F46E5" />
+                  <Text className="mt-2 text-gray-500">Carregando publicações…</Text>
+                </View>
+              ) : posts.length === 0 ? (
+                <View className="items-center py-10">
+                  <Ionicons name="document-text-outline" size={36} color="#9CA3AF" />
+                  <Text className="mt-2 text-gray-500">Sem publicações.</Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {posts.map((p) => (
+                    <PostCard key={`post-${p.id}`} data={p} />
+                  ))}
+                  {postsHasMore && !postsLoading && (
+                    <TouchableOpacity
+                      className="mt-2 bg-gray-100 py-2 rounded-md items-center"
+                      onPress={() => fetchUserPosts(false)}
+                    >
+                      <Text className="text-gray-700">Carregar mais</Text>
+                    </TouchableOpacity>
+                  )}
+                  {postsLoading && (
+                    <View className="py-3 items-center">
+                      <ActivityIndicator color="#4F46E5" />
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
           )}
 
