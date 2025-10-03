@@ -1,7 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { postJson } from '@/services/api';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useHome } from '@/contexts';
 import React, { useCallback, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -15,24 +17,33 @@ type PostData = {
   user: {
     id: number;
     name: string;
+    username?: string;
     avatar: string | null;
+    tipo?: 'loja' | 'nhonguista' | 'cliente' | string;
+    conta_pro?: boolean;
+    is_following?: boolean;
   };
 };
 
-type Props = {
-  data: PostData;
-};
+type Props = { data: PostData };
 
 export default function PostCard({ data }: Props) {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { upsertPostDetailById } = useHome() as any;
   const [liked, setLiked] = useState(data.liked || false);
   const [likes, setLikes] = useState(data.likes || 0);
   const [likeBusy, setLikeBusy] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [following, setFollowing] = useState<boolean>(Boolean(data.user?.is_following));
 
   const handleUserPress = () => {
-    console.log('User pressed:', data.user.id);
-    // router.push(`/profile/${data.user.id}`);
+    const username = data?.user?.username || undefined;
+    if (username) {
+      router.push({ pathname: '/(profile)/[username]', params: { username } });
+    } else {
+      Alert.alert('Perfil', 'Perfil do autor indisponível no momento.');
+    }
   };
 
   const toggleLike = useCallback(async () => {
@@ -53,7 +64,7 @@ export default function PostCard({ data }: Props) {
       setLikes(newLikes);
       
       // Call API (assuming there's a posts like endpoint)
-      await postJson(`/posts/${data.id}/like`, {});
+      await postJson(`/publicacoes/${data.id}/like`, {});
     } catch (error) {
       console.log('Error toggling like:', error);
       // Rollback on error
@@ -64,6 +75,23 @@ export default function PostCard({ data }: Props) {
       setLikeBusy(false);
     }
   }, [isAuthenticated, liked, likes, likeBusy, data.id]);
+
+  const toggleFollowUser = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Necessário', 'Você precisa fazer login para seguir usuários');
+      return;
+    }
+    // Optimistic update
+    const prev = following;
+    setFollowing(!prev);
+    try {
+      await postJson(`/usuario/${data.user.id}/seguir`, {});
+    } catch (e) {
+      // rollback
+      setFollowing(prev);
+      Alert.alert('Erro', 'Não foi possível atualizar o estado de seguir.');
+    }
+  }, [isAuthenticated, following, data.user?.id]);
 
   const getGradientColors = (style: string): string[] => {
     // Converte gradientes Tailwind para cores hex
@@ -94,6 +122,27 @@ export default function PostCard({ data }: Props) {
     return gradients['default'];
   };
 
+  const openDetails = useCallback(() => {
+    // Pre-populate HomeContext post cache so detail screen doesn't need to refetch
+    const cachedShape = {
+      id: data.id,
+      conteudo: data.content,
+      gradient_style: data.gradient_style,
+      data_criacao: data.time,
+      usuario: {
+        id: data.user?.id,
+        nome: data.user?.name,
+        username: data.user?.username,
+        foto_perfil: data.user?.avatar || null,
+      },
+      deu_like: Boolean(data.liked),
+      likes: Number(data.likes || 0),
+      comentarios: [],
+    };
+    upsertPostDetailById?.(cachedShape);
+    router.push({ pathname: '/post', params: { id: String(data.id) } });
+  }, [router, data.id, data.content, data.gradient_style, data.time, data.user, data.liked, data.likes, upsertPostDetailById]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -106,24 +155,63 @@ export default function PostCard({ data }: Props) {
             style={styles.avatar}
           />
           <View style={styles.userDetails}>
-            <Text style={styles.username}>{data.user.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Text style={styles.username}>{data.user.name}</Text>
+              {data.user?.tipo === 'loja' && (
+                <MaterialIcons name="storefront" size={14} color="#6B7280" style={{ marginLeft: 6 }} />
+              )}
+              {!!data.user?.conta_pro && (
+                <Text style={{ marginLeft: 6, fontSize: 10, color: '#0EA5E9', fontWeight: '700' }}>PRO</Text>
+              )}
+              {!!data.user?.tipo && (
+                <Text
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 10,
+                    color: '#4338CA',
+                    backgroundColor: '#EEF2FF',
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {data.user.tipo}
+                </Text>
+              )}
+            </View>
             <Text style={styles.time}>{data.time}</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={toggleFollowUser} style={{ marginRight: 8 }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: '#111827',
+                fontWeight: '700'
+              }}
+            >
+              {following ? 'Seguindo' : 'Seguir'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreButton}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Post Content */}
-      <LinearGradient
-        colors={getGradientColors(data.gradient_style) as any}
-        style={styles.postContent}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      >
-        <Text style={styles.contentText}>{data.content}</Text>
-      </LinearGradient>
+      <TouchableOpacity activeOpacity={0.8} onPress={openDetails}>
+        <LinearGradient
+          colors={getGradientColors(data.gradient_style) as any}
+          style={styles.postContent}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Text style={styles.contentText}>{data.content}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
 
       {/* Action Bar */}
       <View style={styles.actionBar}>
@@ -139,8 +227,9 @@ export default function PostCard({ data }: Props) {
               color={liked ? "#EF4444" : "#374151"} 
             />
           </TouchableOpacity>
+          <Text style={styles.likesText}>{likes}</Text>
           
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={openDetails}>
             <Ionicons name="chatbubble-outline" size={24} color="#374151" />
           </TouchableOpacity>
           
@@ -236,5 +325,11 @@ const styles = StyleSheet.create({
   actionButton: {
     marginRight: 16,
     padding: 4,
+  },
+  likesText: {
+    marginRight: 16,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });

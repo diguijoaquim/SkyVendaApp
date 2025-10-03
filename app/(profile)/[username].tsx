@@ -446,6 +446,17 @@ export default function ProfileScreen() {
                       <Text className="font-semibold text-gray-900" numberOfLines={2}>{p?.nome || p?.titulo || 'Produto'}</Text>
                       {!!p?.preco && <Text className="mt-1 text-violet-600 font-bold">{String(p.preco)} MT</Text>}
                       {!!p?.descricao && <Text className="mt-1 text-gray-600" numberOfLines={2}>{p.descricao}</Text>}
+                      <View className="flex-row items-center mt-1">
+                        {!!p?.time && (
+                          <Text className="text-xs text-gray-500">{p.time}</Text>
+                        )}
+                        {!!p?.views && (
+                          <Text className="text-xs text-gray-500">{p?.time ? ' • ' : ''}{p.views} visualizações</Text>
+                        )}
+                        {typeof p?.total_comentarios === 'number' && (
+                          <Text className="text-xs text-gray-500">{(p?.time || p?.views) ? ' • ' : ''}{p.total_comentarios} comentários</Text>
+                        )}
+                      </View>
                     </View>
                   </View>
                 ))

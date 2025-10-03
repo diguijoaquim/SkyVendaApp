@@ -79,6 +79,11 @@ interface HomeContextType {
   upsertProductDetail: (detail: ProductDetail) => void;
   ensureProductDetail: (slug: string, userId?: number) => Promise<ProductDetail | null>;
   loadProductComments: (slug: string) => Promise<ProductDetail | null>;
+  // Posts cache (by id)
+  getPostByIdFromCache: (id: number) => any | null;
+  upsertPostDetailById: (detail: any) => void;
+  updatePostLike: (id: number, like: boolean, likes?: number) => void;
+  appendPostComment: (id: number, comment: any) => void;
 }
 
 export const HomeContext = createContext<HomeContextType | null>(null);
@@ -109,6 +114,8 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
   // Caches em memória (não persistentes) para produtos carregados pelo feed e detalhes
   const [feedProductsBySlug, setFeedProductsBySlug] = useState<Record<string, Product>>({});
   const [productDetailsBySlug, setProductDetailsBySlug] = useState<Record<string, ProductDetail>>({});
+  // Cache em memória para posts (por id)
+  const [postDetailsById, setPostDetailsById] = useState<Record<number, any>>({});
 
   // Initialize user_id from AsyncStorage
   useEffect(() => {
@@ -359,6 +366,45 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
     return cached;
   }, [productDetailsBySlug, getProductFromCache, loadProductComments]);
 
+  // ====== Posts cache helpers ======
+  const getPostByIdFromCache = useCallback((id: number) => {
+    if (!id) return null;
+    return postDetailsById[id] || null;
+  }, [postDetailsById]);
+
+  const upsertPostDetailById = useCallback((detail: any) => {
+    if (!detail || !detail.id) return;
+    setPostDetailsById((prev) => ({
+      ...prev,
+      [detail.id]: prev[detail.id] ? { ...prev[detail.id], ...detail } : detail,
+    }));
+  }, []);
+
+  const updatePostLike = useCallback((id: number, like: boolean, likes?: number) => {
+    if (!id) return;
+    setPostDetailsById((prev) => {
+      if (!prev[id]) return prev;
+      const currentLikes = Number(prev[id]?.likes || 0);
+      const nextLikes = typeof likes === 'number' ? likes : currentLikes + (like ? 1 : -1);
+      return {
+        ...prev,
+        [id]: { ...prev[id], deu_like: like, likes: nextLikes },
+      };
+    });
+  }, []);
+
+  const appendPostComment = useCallback((id: number, comment: any) => {
+    if (!id || !comment) return;
+    setPostDetailsById((prev) => {
+      if (!prev[id]) return prev;
+      const arr = Array.isArray(prev[id]?.comentarios) ? prev[id].comentarios : [];
+      return {
+        ...prev,
+        [id]: { ...prev[id], comentarios: [...arr, comment] },
+      };
+    });
+  }, []);
+
   // Função para salvar dados no cache
   const saveToCache = async (key: string, data: any) => {
     try {
@@ -542,7 +588,12 @@ const HomeProvider = ({ children }: { children: React.ReactNode }) => {
         getProductFromCache,
         upsertProductDetail,
         ensureProductDetail,
-        loadProductComments
+        loadProductComments,
+        // posts cache helpers
+        getPostByIdFromCache,
+        upsertPostDetailById,
+        updatePostLike,
+        appendPostComment
       }}
     >
       {children}

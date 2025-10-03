@@ -24,6 +24,7 @@
         "backgroundColor": "#4F46E5"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "package": "com.bluespark.skyvendamz",
       "versionCode": 2,
       "intentFilters": [

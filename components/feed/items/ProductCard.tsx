@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { postJson } from '@/services/api';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -25,7 +25,11 @@ type ProductData = {
   user: {
     id: number;
     name: string;
+    username?: string;
     avatar: string | null;
+    tipo?: 'loja' | 'nhonguista' | 'cliente' | string;
+    conta_pro?: boolean;
+    is_following?: boolean;
   };
 };
 
@@ -41,6 +45,7 @@ export default function ProductCard({ data }: Props) {
   const [likes, setLikes] = useState(data.likes || 0);
   const [likeBusy, setLikeBusy] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [following, setFollowing] = useState<boolean>(Boolean(data.user?.is_following));
 
   const images = (data.images && data.images.length > 0)
     ? data.images
@@ -51,8 +56,12 @@ export default function ProductCard({ data }: Props) {
   };
 
   const handleUserPress = () => {
-    console.log('User pressed:', data.user.id);
-    // router.push(`/profile/${data.user.id}`);
+    const username = data?.user?.username;
+    if (username) {
+      router.push({ pathname: '/(profile)/[username]', params: { username } });
+    } else {
+      Alert.alert('Perfil', 'Username indisponível para este vendedor.');
+    }
   };
 
   const toggleLike = useCallback(async () => {
@@ -85,6 +94,21 @@ export default function ProductCard({ data }: Props) {
     }
   }, [isAuthenticated, liked, likes, likeBusy, data.slug]);
 
+  const toggleFollowUser = useCallback(async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Necessário', 'Você precisa fazer login para seguir usuários');
+      return;
+    }
+    const prev = following;
+    setFollowing(!prev);
+    try {
+      await postJson(`/usuario/${data.user.id}/seguir`, {});
+    } catch (e) {
+      setFollowing(prev);
+      Alert.alert('Erro', 'Não foi possível atualizar o estado de seguir.');
+    }
+  }, [isAuthenticated, following, data.user?.id]);
+
   const formatMZN = (value?: number) => {
     if (typeof value !== 'number') return '0,00 MZN';
     try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value} MZN`; }
@@ -100,7 +124,31 @@ export default function ProductCard({ data }: Props) {
             style={styles.avatar}
           />
           <View style={styles.userDetails}>
-            <Text style={styles.username}>{data.user.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Text style={styles.username}>{data.user.name}</Text>
+              {data.user?.tipo === 'loja' && (
+                <MaterialIcons name="storefront" size={14} color="#6B7280" style={{ marginLeft: 6 }} />
+              )}
+              {!!data.user?.conta_pro && (
+                <Text style={{ marginLeft: 6, fontSize: 10, color: '#0EA5E9', fontWeight: '700' }}>PRO</Text>
+              )}
+              {!!data.user?.tipo && (
+                <Text
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 10,
+                    color: '#4338CA',
+                    backgroundColor: '#EEF2FF',
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {data.user.tipo}
+                </Text>
+              )}
+            </View>
             <View style={styles.locationRow}>
               {data.province ? (
                 <View style={styles.locationContainer}>
@@ -112,9 +160,14 @@ export default function ProductCard({ data }: Props) {
             </View>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={toggleFollowUser} style={{ marginRight: 8 }}>
+            <Text style={{ fontSize: 12, color: '#111827', fontWeight: '700' }}>{following ? 'Seguindo' : 'Seguir'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreButton}>
+            <Ionicons name="ellipsis-horizontal" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Product Title & Price */}
