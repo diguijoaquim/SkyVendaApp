@@ -2,10 +2,12 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as QuickActions from 'expo-quick-actions';
+import { useRouter } from 'expo-router';
 import '../global.css';
 
 import SplashScreen from '@/components/SplashScreen';
@@ -16,6 +18,36 @@ import { WebSocketProvider } from '@/contexts/WebSocketContext';
 function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const { loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Registrar atalhos
+    try {
+      QuickActions.setShortcuts([
+        { id: 'vender', title: 'Vender produto', subtitle: 'Publique agora', icon: 'compose' },
+        { id: 'postar', title: 'Postar', subtitle: 'Escrever status', icon: 'pencil' },
+        { id: 'nhonguistas', title: 'Nhonguistas', subtitle: 'Comunidade', icon: 'person.3' },
+        { id: 'lojas', title: 'Lojas', subtitle: 'Ver produtos', icon: 'cart' },
+      ]);
+      const sub = QuickActions.addListener((action) => {
+        switch (action.id) {
+          case 'vender':
+            router.push('/publish-product');
+            break;
+          case 'postar':
+            router.push('/posts');
+            break;
+          case 'nhonguistas':
+            router.push('/amigos');
+            break;
+          case 'lojas':
+            router.push('/(produtos)');
+            break;
+        }
+      });
+      return () => sub.remove();
+    } catch {}
+  }, [router]);
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} isLoading={loading} />;

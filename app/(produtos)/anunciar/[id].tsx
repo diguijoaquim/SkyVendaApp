@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { postJson } from '@/services/api';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 const PRICING = {
   ofertas_diarias: { price: 100, label: 'Oferta Diária', value: 'ofertas_diarias' },
   melhores_boladas: { price: 150, label: 'Melhores Boladas', value: 'melhores_boladas' },
@@ -46,7 +46,7 @@ export default function AnunciarProdutoScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView className='flex-1 bg-white'>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}><Ionicons name="chevron-back" size={22} color="#fff" /></TouchableOpacity>
         <Text style={styles.headerTitle}>Turbinar a bolada</Text>
@@ -84,7 +84,7 @@ export default function AnunciarProdutoScreen() {
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Turbinar Agora</Text>}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -113,7 +113,7 @@ function LabeledInput({ label, multiline, style, ...props }: any) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#4F46E5', paddingHorizontal: 12, paddingVertical: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#7C3AED', paddingHorizontal: 12, paddingVertical: 12 },
   headerBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
 
@@ -122,13 +122,13 @@ const styles = StyleSheet.create({
 
   rowButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choiceBtn: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E7EB', backgroundColor: '#F3F4F6' },
-  choiceBtnActive: { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' },
+  choiceBtnActive: { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' },
   choiceText: { color: '#374151', fontWeight: '600' },
-  choiceTextActive: { color: '#4F46E5' },
+  choiceTextActive: { color: '#7C3AED' },
 
   summaryBox: { gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, backgroundColor: '#F9FAFB' },
   rowText: { color: '#111827' },
 
-  primaryBtn: { marginTop: 8, borderRadius: 8, backgroundColor: '#4F46E5', paddingVertical: 12, alignItems: 'center' },
+  primaryBtn: { marginTop: 8, borderRadius: 8, backgroundColor: '#7C3AED', paddingVertical: 12, alignItems: 'center' },
   primaryBtnText: { color: '#fff', fontWeight: '700' },
 });

@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { getJson } from '@/services/api';
+import { getJson, postJson, putJson, del, BASE_URL } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type Product = {
@@ -14,6 +14,7 @@ export type Product = {
   category?: string;
   type?: string;
   stock?: number;
+  stock_quantity?: number; // backend field
   estado?: string;
   ativo?: boolean;
   active?: boolean;
@@ -23,6 +24,9 @@ export type Product = {
   thumb?: string;
   description?: string;
   content?: string;
+  views?: number | string;
+  likes?: number | string;
+  comments?: any[];
 };
 
 export default function MyProductsScreen() {
@@ -34,6 +38,44 @@ export default function MyProductsScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'todos'|'activos'|'desativados'|'autorenovacao'>('todos');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuItem, setMenuItem] = useState<Product | null>(null);
+
+  const updateProductInState = (predicate: (p: Product) => boolean, updater: (p: Product) => Product) => {
+    setProducts(prev => prev.map(p => (predicate(p) ? updater(p) : p)));
+  };
+
+  const activateBolada = async (p: Product) => {
+    if (!token) return;
+    try {
+      await postJson(`/produtos/${p.id}/renovar`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      updateProductInState(x => x.id === p.id, x => ({ ...x, ativo: true, active: true }));
+      Alert.alert('Sucesso', 'Produto ativado com sucesso');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao ativar');
+    }
+  };
+
+  const toggleAutoRenovacao = async (p: Product, enable: boolean) => {
+    if (!token) return;
+    try {
+      await putJson(`/produtos/${p.id}/autorenovacao?autorenovacao=${enable}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      updateProductInState(x => x.id === p.id, x => ({ ...x, autorenovacao: enable, auto_renovacao: enable, autoRenew: enable }));
+      Alert.alert('Sucesso', enable ? 'Autorrenovação ativada' : 'Autorrenovação desativada');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao atualizar autorrenovação');
+    }
+  };
+
+  const tornarNegociavel = async (p: Product) => {
+    if (!token) return;
+    try {
+      await putJson(`/produtos/${p.id}/negociavel?negociavel=true`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      Alert.alert('Sucesso', 'Produto marcado como negociável');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao tornar negociável');
+    }
+  };
 
   const fetchProducts = async () => {
     if (!token) { setError('Usuário não autenticado'); setLoading(false); return; }
@@ -84,32 +126,53 @@ export default function MyProductsScreen() {
     }, { todos: 0, activos: 0, desativados: 0, autorenovacao: 0 } as Record<string, number>);
   }, [products]);
 
-  const renderItem = ({ item }: { item: Product }) => (
-    <TouchableOpacity className="bg-white p-3 rounded-lg border border-gray-200" activeOpacity={0.85}>
-      <View className="flex-row items-center justify-between">
-        <Text className="text-base font-bold text-gray-900">{item.title || '—'}</Text>
-        <Text className="text-xs text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full">{Boolean(item.ativo ?? item.active) ? 'Ativo' : 'Inativo'}</Text>
-      </View>
-      <View className="mt-1.5">
-        <Text className="text-[13px] text-gray-700">Preço: {typeof item.price === 'number' ? formatCurrency(item.price) : '—'}</Text>
-        <Text className="text-[13px] text-gray-700">Estoque: {typeof item.stock === 'number' ? item.stock : '—'}</Text>
-      </View>
-      <View className="flex-row gap-2 mt-2.5">
-        <TouchableOpacity
-          className="py-2 px-3 rounded-full border border-violet-600 bg-violet-100"
-          onPress={() => router.push({ pathname: '/produtos/editar/[slug]', params: { slug: item.slug } })}
-        >
-          <Text className="font-bold text-violet-700">Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="py-2 px-3 rounded-full border border-green-600 bg-green-100"
-          onPress={() => router.push({ pathname: '/produtos/anunciar/[id]', params: { id: String(item.id) } })}
-        >
-          <Text className="font-bold text-green-700">Turbinar</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }: { item: Product }) => {
+    const img = normalizeImageUrl(item.thumb);
+    return (
+      <TouchableOpacity className="bg-white p-3 rounded-lg border border-gray-200" activeOpacity={0.85}>
+        <View className="flex-row gap-3" style={{ height: 96 }}>
+          <Image
+            source={{ uri: img }}
+            style={{ width: 96, height: '100%', borderRadius: 10, backgroundColor: '#F3F4F6' }}
+            resizeMode="cover"
+          />
+          <View className="flex-1">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{item.title || '—'}</Text>
+              <Text className="text-xs text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full">{Boolean(item.ativo ?? item.active) ? 'Ativo' : 'Inativo'}</Text>
+            </View>
+            <View className="mt-1.5">
+              <Text className="text-[13px] text-gray-700">Preço: {typeof item.price === 'number' ? formatCurrency(item.price) : '—'}</Text>
+              <Text className="text-[13px] text-gray-700">Estoque: {getStock(item)}</Text>
+            </View>
+            {/* Stats + Actions on the same row */}
+            <View className="flex-row items-center justify-between mt-2.5">
+              <View className="flex-row gap-3">
+                <Text className="text-[12px] text-gray-500">👁️ {toNum(item.views)}</Text>
+                <Text className="text-[12px] text-gray-500">💬 {Array.isArray(item.comments) ? item.comments.length : toNum(undefined)}</Text>
+                <Text className="text-[12px] text-gray-500">❤️ {toNum(item.likes)}</Text>
+              </View>
+              <View className="flex-row gap-2 items-center">
+                <TouchableOpacity
+                  className="py-2 px-3 rounded-full border border-green-600 bg-green-100"
+                  onPress={() => router.push({ pathname: '/produtos/anunciar/[id]', params: { id: String(item.id) } })}
+                >
+                  <Text className="font-bold text-green-700">Turbinar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="w-9 h-9 items-center justify-center rounded-full border border-gray-300 bg-white"
+                  onPress={() => { setMenuItem(item); setMenuVisible(true); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -168,6 +231,27 @@ export default function MyProductsScreen() {
           />
         )}
       </View>
+
+      {/* Menu de ações */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} onPress={() => setMenuVisible(false)}>
+          <View className="absolute left-4 right-4 bottom-6 bg-white rounded-2xl p-3" style={{ shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }}>
+            <MenuItem label="Editar" onPress={() => { if (menuItem) router.push({ pathname: '/produtos/editar/[slug]', params: { slug: menuItem.slug } }); setMenuVisible(false); }} />
+            <MenuItem label="Turbinar a bolada" onPress={() => { if (menuItem) router.push({ pathname: '/produtos/anunciar/[id]', params: { id: String(menuItem.id) } }); setMenuVisible(false); }} />
+            <MenuItem label="Ativar autorenovação" onPress={() => { if (menuItem) toggleAutoRenovacao(menuItem, true); setMenuVisible(false); }} />
+            <MenuItem label="Tornar Negociável" onPress={() => { if (menuItem) tornarNegociavel(menuItem); setMenuVisible(false); }} />
+            <MenuItem label="Excluir" destructive onPress={() => { if (menuItem) Alert.alert('Excluir', 'Confirma excluir este produto?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Excluir', style: 'destructive', onPress: () => {/* TODO: implementar endpoint delete */} }
+            ]); setMenuVisible(false); }} />
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -186,6 +270,39 @@ function formatCurrency(value?: number) {
   try {
     return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value);
   } catch { return `${value}`; }
+}
+
+function normalizeImageUrl(url?: string) {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return 'https://via.placeholder.com/160x160?text=Produto';
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const base = BASE_URL?.replace(/\/$/, '') || '';
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${base}${path}`;
+}
+
+function getStock(p: Product) {
+  const direct = p.stock;
+  const alt = p.stock_quantity as any;
+  const v = typeof direct === 'number' ? direct : (typeof alt === 'number' ? alt : Number(alt));
+  return Number.isFinite(v) ? v : '—';
+}
+
+function toNum(v: any) {
+  if (typeof v === 'number') return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function MenuItem({ label, onPress, destructive }: { label: string; onPress: () => void; destructive?: boolean }) {
+  return (
+    <TouchableOpacity onPress={onPress} className="flex-row items-center py-3 px-2 rounded-lg">
+      <Text className={`text-[15px] ${destructive ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
 
 // Tailwind via NativeWind classes are used above; StyleSheet removed.

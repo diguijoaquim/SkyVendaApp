@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Animated, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
-import { getJson, putMultipart } from '@/services/api';
+import { getJson, putMultipart, BASE_URL, postJson, putJson } from '@/services/api';
 import PostCard from '@/components/feed/items/PostCard';
 import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -74,6 +74,10 @@ export default function ProfileScreen() {
   const [isMyProfile, setIsMyProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPendingInfo, setShowPendingInfo] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuItem, setMenuItem] = useState<any | null>(null);
+  const pagerRef = useRef<ScrollView | null>(null);
+  const screenWidth = Dimensions.get('window').width;
 
   // Carregar perfil e dados relacionados
   useEffect(() => {
@@ -142,7 +146,12 @@ export default function ProfileScreen() {
       setPostsLoading(true);
       const page = reset ? 1 : postsPage;
       const perPage = 20;
-      const resp: any = await getJson(`/publicacoes/listar?page=${page}&per_page=${perPage}`);
+      // Se for meu perfil e tenho token, usar rota segura "minhas" para obter liked correto
+      const endpoint = isMyProfile && token
+        ? `/publicacoes/minhas?page=${page}&per_page=${perPage}`
+        : `/publicacoes/listar?page=${page}&per_page=${perPage}`;
+      const headers = isMyProfile && token ? { headers: { Authorization: `Bearer ${token}` } } : undefined as any;
+      const resp: any = await getJson(endpoint, headers);
       const list = Array.isArray(resp?.publicacoes) ? resp.publicacoes : [];
       // Support both shapes: { usuario: {...} } and { publicador: {...} }
       const filtered = list.filter((p: any) => {
@@ -156,7 +165,7 @@ export default function ProfileScreen() {
       const mapped = filtered.map((p: any) => {
         const author = p?.usuario || p?.publicador || {};
         const likes = p.likes_count ?? p.total_likes ?? 0;
-        const deu_like = p.liked ?? p.deu_like ?? false;
+        const deu_like = (typeof p.liked === 'boolean' ? p.liked : undefined) ?? (typeof p.deu_like === 'boolean' ? p.deu_like : undefined) ?? false;
         const time = p.tempo || p.data_criacao || '';
         return {
         id: p.id,
@@ -203,6 +212,32 @@ export default function ProfileScreen() {
       fetchUserPosts(true);
     }
   }, [tab]);
+
+  // Ações de produto no perfil (somente meu perfil)
+  const updateProductInState = (predicate: (p: any) => boolean, updater: (p: any) => any) => {
+    setProducts(prev => prev.map(p => (predicate(p) ? updater(p) : p)));
+  };
+
+  const toggleAutoRenovacaoProfile = async (p: any, enable: boolean) => {
+    if (!token || !isMyProfile) return;
+    try {
+      await putJson(`/produtos/${p.id}/autorenovacao?autorenovacao=${enable}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      updateProductInState(x => x.id === p.id, x => ({ ...x, autorenovacao: enable, auto_renovacao: enable, autoRenew: enable }));
+      Alert.alert('Sucesso', enable ? 'Autorrenovação ativada' : 'Autorrenovação desativada');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao atualizar autorrenovação');
+    }
+  };
+
+  const tornarNegociavelProfile = async (p: any) => {
+    if (!token || !isMyProfile) return;
+    try {
+      await putJson(`/produtos/${p.id}/negociavel?negociavel=true`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      Alert.alert('Sucesso', 'Produto marcado como negociável');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Falha ao tornar negociável');
+    }
+  };
 
   const avatar = useMemo(() => {
     return (
@@ -516,40 +551,80 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <View className="mt-8 border-b border-gray-200 px-4">
           <View className="flex-row gap-4">
-            <TouchableOpacity onPress={() => setTab('produtos')}>
+            <TouchableOpacity onPress={() => { setTab('produtos'); pagerRef.current?.scrollTo({ x: 0, animated: true }); }}>
               <Text className={`pb-2 ${tab === 'produtos' ? 'font-bold text-gray-900' : 'text-gray-500'}`}>Produtos</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTab('publicacoes')}>
+            <TouchableOpacity onPress={() => { setTab('publicacoes'); pagerRef.current?.scrollTo({ x: screenWidth, animated: true }); }}>
               <Text className={`pb-2 ${tab === 'publicacoes' ? 'font-bold text-gray-900' : 'text-gray-500'}`}>Publicações</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTab('seguidores')}>
+            <TouchableOpacity onPress={() => { setTab('seguidores'); pagerRef.current?.scrollTo({ x: screenWidth * 2, animated: true }); }}>
               <Text className={`pb-2 ${tab === 'seguidores' ? 'font-bold text-gray-900' : 'text-gray-500'}`}>Seguidores</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Conteúdo das tabs */}
-        <View className="px-4 mt-4">
-          {tab === 'produtos' && (
+        {/* Conteúdo com pager deslizável */}
+        <ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+            const nextTab = index === 0 ? 'produtos' : index === 1 ? 'publicacoes' : 'seguidores';
+            setTab(nextTab);
+            if (nextTab === 'publicacoes' && posts.length === 0 && !postsLoading) {
+              fetchUserPosts(true);
+            }
+          }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          style={{ marginTop: 16 }}
+        >
+          {/* Página 1: Produtos */}
+          <View style={{ width: screenWidth }} className="px-4">
             <View className="gap-3">
               {products?.length ? (
-                products.map((p, idx) => (
-                  <View key={idx} className="flex-row gap-3 p-3 rounded-lg border border-gray-100">
-                    <Image source={{ uri: p?.capa || p?.imagem || p?.image || 'https://via.placeholder.com/160' }} style={{ width: 80, height: 80, borderRadius: 8 }} contentFit="cover" />
-                    <View className="flex-1">
-                      <Text className="font-semibold text-gray-900" numberOfLines={2}>{p?.nome || p?.titulo || 'Produto'}</Text>
-                      {!!p?.preco && <Text className="mt-1 text-violet-600 font-bold">{String(p.preco)} MT</Text>}
-                      {!!p?.descricao && <Text className="mt-1 text-gray-600" numberOfLines={2}>{p.descricao}</Text>}
-                      <View className="flex-row items-center mt-1">
-                        {!!p?.time && (
-                          <Text className="text-xs text-gray-500">{p.time}</Text>
-                        )}
-                        {!!p?.views && (
-                          <Text className="text-xs text-gray-500">{p?.time ? ' • ' : ''}{p.views} visualizações</Text>
-                        )}
-                        {typeof p?.total_comentarios === 'number' && (
-                          <Text className="text-xs text-gray-500">{(p?.time || p?.views) ? ' • ' : ''}{p.total_comentarios} comentários</Text>
-                        )}
+                products.map((item: any, idx) => (
+                  <View key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
+                    <View className="flex-row gap-3" style={{ height: 96 }}>
+                      <Image
+                        source={{ uri: normalizeImageUrl(item?.thumb || item?.imagem || item?.image as string) }}
+                        style={{ width: 96, height: '100%', borderRadius: 10, backgroundColor: '#F3F4F6' }}
+                        contentFit="cover"
+                      />
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{item?.title || item?.nome || '—'}</Text>
+                          <Text className="text-xs text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full">{Boolean(item?.ativo ?? item?.active) ? 'Ativo' : 'Inativo'}</Text>
+                        </View>
+                        <View className="mt-1.5">
+                          <Text className="text-[13px] text-gray-700">Preço: {typeof item?.price === 'number' ? fmtMZN(item.price) : (typeof item?.preco === 'number' ? fmtMZN(item.preco) : '—')}</Text>
+                          <Text className="text-[13px] text-gray-700">Estoque: {getStockProfile(item)}</Text>
+                        </View>
+                        <View className="flex-row items-center justify-between mt-2.5">
+                          <View className="flex-row gap-3">
+                            <Text className="text-[12px] text-gray-500">👁️ {toNum(item?.views)}</Text>
+                            <Text className="text-[12px] text-gray-500">💬 {Array.isArray(item?.comments) ? item.comments.length : 0}</Text>
+                            <Text className="text-[12px] text-gray-500">❤️ {toNum(item?.likes)}</Text>
+                          </View>
+                          {isMyProfile && (
+                            <View className="flex-row gap-2 items-center">
+                              <TouchableOpacity
+                                className="py-2 px-3 rounded-full border border-green-600 bg-green-100"
+                                onPress={() => router.push({ pathname: '/produtos/anunciar/[id]', params: { id: String(item.id) } })}
+                              >
+                                <Text className="font-bold text-green-700">Turbinar</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                className="w-9 h-9 items-center justify-center rounded-full border border-gray-300 bg-white"
+                                onPress={() => { setMenuItem(item); setMenuVisible(true); }}
+                                activeOpacity={0.8}
+                              >
+                                <Ionicons name="ellipsis-vertical" size={18} color="#6B7280" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
                   </View>
@@ -558,9 +633,10 @@ export default function ProfileScreen() {
                 <Text className="text-gray-500">Sem produtos ainda.</Text>
               )}
             </View>
-          )}
+          </View>
 
-          {tab === 'publicacoes' && (
+          {/* Página 2: Publicações */}
+          <View style={{ width: screenWidth }} className="px-4">
             <View>
               {posts.length === 0 && postsLoading ? (
                 <View className="items-center py-10">
@@ -593,16 +669,35 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-          )}
+          </View>
 
-          {tab === 'seguidores' && (
+          {/* Página 3: Seguidores */}
+          <View style={{ width: screenWidth }} className="px-4">
             <View className="items-center py-10">
               <Ionicons name="people-outline" size={36} color="#9CA3AF" />
               <Text className="mt-2 text-gray-500">Seguidores em breve</Text>
             </View>
+          </View>
+        </ScrollView>
+      </ScrollView>
+
+      {/* Menu de ações (somente meu perfil) */}
+      {isMyProfile && (
+        <View>
+          {menuVisible && (
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0 }}>
+              <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} activeOpacity={1} onPress={() => setMenuVisible(false)} />
+              <View style={{ position: 'absolute', left: 16, right: 16, bottom: 20, backgroundColor: 'white', borderRadius: 16, padding: 12 }}>
+                <MenuBtn label="Editar" onPress={() => { if (menuItem) router.push({ pathname: '/produtos/editar/[slug]', params: { slug: menuItem.slug } }); setMenuVisible(false); }} />
+                <MenuBtn label="Turbinar a bolada" onPress={() => { if (menuItem) router.push({ pathname: '/produtos/anunciar/[id]', params: { id: String(menuItem.id) } }); setMenuVisible(false); }} />
+                <MenuBtn label="Ativar autorenovação" onPress={() => { if (menuItem) toggleAutoRenovacaoProfile(menuItem, true); setMenuVisible(false); }} />
+                <MenuBtn label="Tornar Negociável" onPress={() => { if (menuItem) tornarNegociavelProfile(menuItem); setMenuVisible(false); }} />
+                <MenuBtn label="Excluir" destructive onPress={() => { /* implementar se necessário */ setMenuVisible(false); }} />
+              </View>
+            </View>
           )}
         </View>
-      </ScrollView>
+      )}
 
       {/* Dialog de status pendente */}
       {showPendingInfo && (
@@ -629,3 +724,42 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
+
+function normalizeImageUrl(url?: string) {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return 'https://via.placeholder.com/160x160?text=Produto';
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const base = BASE_URL?.replace(/\/$/, '') || '';
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${base}${path}`;
+}
+
+function getStockProfile(p: any) {
+  const a = p?.stock;
+  const b = p?.stock_quantity;
+  const v = typeof a === 'number' ? a : (typeof b === 'number' ? b : Number(b));
+  return Number.isFinite(v) ? v : '—';
+}
+
+function toNum(v: any) {
+  if (typeof v === 'number') return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function MenuBtn({ label, onPress, destructive }: { label: string; onPress: () => void; destructive?: boolean }) {
+  return (
+    <TouchableOpacity onPress={onPress} className="py-3">
+      <Text className={`${destructive ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function fmtMZN(value?: number) {
+  if (typeof value !== 'number') return '—';
+  try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(value); } catch { return `${value}`; }
+}
+

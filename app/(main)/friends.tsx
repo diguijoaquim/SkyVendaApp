@@ -1,9 +1,9 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { getJson } from '@/services/api';
 import { useRouter } from 'expo-router';
-import { HomeContext } from '@/contexts/HomeContext';
+import { useHome } from '@/contexts/HomeContext';
 
 type Nhonguista = {
   id: number;
@@ -21,7 +21,7 @@ export default function FriendsScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'nhonguistas' | 'lojas'>('nhonguistas');
   const router = useRouter();
-  const {sellers, setSellers}=useContext(HomeContext)
+  const { sellers, addSellers } = useHome();
 
   useEffect(() => {
     fetchNhonguistas();
@@ -43,7 +43,7 @@ export default function FriendsScreen() {
         is_loja: !!u.is_loja,
       }));
       setNhonguistas(mapped);
-      setSellers(mapped)
+      addSellers(mapped)
     } catch (e) {
       console.warn('Erro ao buscar nhonguistas');
       setNhonguistas([]);

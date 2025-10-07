@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "skyvendaapp",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bluespark.skyvendamz",
@@ -17,7 +16,6 @@
         "applinks:www.skyvenda.com"
       ]
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
@@ -37,7 +35,10 @@
               "host": "skyvenda.com"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         },
         {
           "action": "VIEW",
@@ -46,27 +47,26 @@
               "scheme": "skyvendaapp"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
-
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-quick-actions"
     ],
-
     "newArchEnabled": true,
-
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
       "router": {
         "origin": "https://skyvenda.com"
