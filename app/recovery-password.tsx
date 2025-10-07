@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function RecoveryPassword() {
   const [email, setEmail] = useState('');
@@ -24,30 +25,35 @@ export default function RecoveryPassword() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100">
-      <View className="flex-1 justify-center px-4 py-6 min-h-screen">
-        <View className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl p-6" style={{ gap: 24 }}>
-          {/* Header */}
-          <View className="items-center">
-            <View className="mb-14">
-              <Ionicons name="key-outline" size={64} color="#6366F1" />
+    <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
+      <LinearGradient
+        colors={["#f7eeff", "#F5F3FF", "#fdebecf5"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <View className="flex-1 justify-center px-5 py-8">
+          {/* Logo and Header */}
+          <View className="items-center mb-10">
+            <View className="mb-10">
+              <Image
+                source={require('../assets/images/icon.png')}
+                className="h-16 w-16"
+                style={{ width: 64, height: 64 }}
+              />
             </View>
-            <Text className="text-2xl font-bold text-gray-800 text-center">
-              Recuperar Senha
-            </Text>
-            <Text className="mt-2 text-gray-600 text-center">
-              Digite seu email para receber instruções de recuperação
-            </Text>
+            <Text className="text-3xl font-extrabold text-violet-600">SkyVenda MZ</Text>
+            <Text className="mt-2 text-gray-600">Recuperar conta</Text>
           </View>
 
           {/* Form */}
-          <View style={{ gap: 16 }}>
+          <View className='px-2'>
             {/* Email Input */}
-            <View className="relative">
-              <Ionicons 
-                name="mail-outline" 
-                size={20} 
-                color="#9CA3AF" 
+            <View className="relative" style={{ marginBottom: 14 }}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="#9CA3AF"
                 style={{ position: 'absolute', left: 12, top: 16, zIndex: 1 }}
               />
               <TextInput
@@ -65,30 +71,31 @@ export default function RecoveryPassword() {
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={loading}
-              className="w-full flex-row items-center justify-center py-4 px-4 rounded-full bg-indigo-500"
+              className="w-full flex-row items-center justify-center py-4 px-4 rounded-full bg-violet-500"
+              style={{ marginBottom: 14 }}
             >
               {loading ? (
                 <ActivityIndicator color="white" size="small" />
               ) : (
-                <Text className="text-white font-medium text-base">Enviar Email</Text>
+                <Text className="text-white font-medium text-base">Enviar instruções</Text>
               )}
             </TouchableOpacity>
 
             {/* Back to Login */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.back()}
-              className="w-full flex-row items-center justify-center py-4 px-4 rounded-full border border-indigo-500"
+              className="w-full flex-row items-center justify-center py-4 px-4 rounded-full border border-violet-500"
             >
-              <Text className="text-indigo-500 font-medium text-base">Voltar ao Login</Text>
+              <Text className="text-violet-500 font-medium text-base">Voltar ao Login</Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Footer */}
-        <View className="absolute bottom-12 left-0 right-0 items-center">
-          <Text className="text-gray-400 text-sm font-bold">BlueSpark MZ</Text>
+          {/* Footer */}
+          <View className="items-center mt-12">
+            <Text className="text-gray-400 text-sm font-bold">BlueSpark MZ</Text>
+          </View>
         </View>
-      </View>
+      </LinearGradient>
     </ScrollView>
   );
 } 

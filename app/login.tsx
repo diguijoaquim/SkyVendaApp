@@ -3,13 +3,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [errorVisible, setErrorVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { getToken, isAuthenticated, loginWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -21,7 +23,23 @@ export default function Login() {
       await getToken(username, password);
       setLoginLoading(false);
     } catch (error) {
-      console.log("erro ao entrar", error);
+      // Mostrar dialogo de erro com mensagens específicas
+      const message = (() => {
+        const anyErr: any = error;
+        const status = anyErr?.response?.status;
+        if (status === 401) {
+          return 'Credenciais inválidas. Verifique seu email ou senha.';
+        }
+        if (status === 422) {
+          return 'Dados inválidos. Verifique seu email e senha.';
+        }
+        if (anyErr?.message === 'Network Error') {
+          return 'Sem conexão. Verifique sua internet e tente novamente.';
+        }
+        return 'Falha ao entrar. Tente novamente mais tarde.';
+      })();
+      setErrorMessage(message);
+      setErrorVisible(true);
       setLoginLoading(false);
     }
   };
@@ -144,6 +162,37 @@ export default function Login() {
           </View>
         </View>
       </LinearGradient>
+      {/* Dialogo de Erro */}
+      <Modal
+        visible={errorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorVisible(false)}
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}>
+          <View className="w-11/12 rounded-2xl bg-white p-5">
+            <Text className="text-lg font-semibold text-gray-900 mb-1">Não foi possível entrar</Text>
+            <Text className="text-gray-600 mb-5">{errorMessage || 'Ocorreu um erro ao autenticar.'}</Text>
+            <View className="gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setErrorVisible(false);
+                  router.push('/recovery-password');
+                }}
+                className="w-full items-center justify-center py-3 rounded-full bg-violet-600"
+              >
+                <Text className="text-white font-semibold">Recuperar conta</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setErrorVisible(false)}
+                className="w-full items-center justify-center py-3 rounded-full bg-white border border-violet-600"
+              >
+                <Text className="text-violet-600 font-semibold">Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
