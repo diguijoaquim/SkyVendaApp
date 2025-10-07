@@ -25,6 +25,8 @@ interface Profile {
   is_pro?: boolean;
   conta_pro?: boolean;
   produtos?: any[];
+  revisao?: string; // 'sim' | 'nao' | 'pendente'
+  revisado?: string; // alias vindo do backend/web
 }
 
 function isPro(u?: Profile) {
@@ -71,6 +73,7 @@ export default function ProfileScreen() {
   const [tab, setTab] = useState<'produtos' | 'publicacoes' | 'seguidores'>('produtos');
   const [isMyProfile, setIsMyProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPendingInfo, setShowPendingInfo] = useState(false);
 
   // Carregar perfil e dados relacionados
   useEffect(() => {
@@ -445,6 +448,22 @@ export default function ProfileScreen() {
             {isMyProfile && (
               <Text className="text-xs text-violet-600 mt-1">Toque na foto para alterá-la</Text>
             )}
+            {isMyProfile && (profile?.revisao !== 'sim' && profile?.revisado !== 'sim') && (
+              <View className="mt-3 items-center">
+                {(profile?.revisao === 'pendente' || profile?.revisado === 'pendente') ? (
+                  <TouchableOpacity onPress={() => setShowPendingInfo(true)}>
+                    <Text className="text-xs text-amber-600">Sua verificação está em análise</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    className="mt-2 bg-amber-500 px-4 py-2 rounded-md"
+                    onPress={() => router.push('/verificacao')}
+                  >
+                    <Text className="text-white font-semibold">Enviar verificação</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
           <View className="flex-row gap-2 mt-4">
@@ -584,6 +603,29 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Dialog de status pendente */}
+      {showPendingInfo && (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' }}>
+          <View className="absolute left-4 right-4 top-1/4 bg-white rounded-lg p-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="font-semibold text-gray-900">Verificação pendente</Text>
+              <TouchableOpacity onPress={() => setShowPendingInfo(false)}>
+                <Ionicons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-gray-700">
+              Olá {profile?.name || profile?.username}, a sua verificação está sendo revisada. Você receberá uma notificação quando estiver concluída e sua conta for verificada.
+            </Text>
+            <View className="mt-2 bg-blue-50 p-3 rounded-md border border-blue-200">
+              <Text className="text-blue-800">Obrigado por enviar os seus documentos. O processo pode levar algum tempo.</Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowPendingInfo(false)} className="mt-4 bg-violet-600 px-4 py-3 rounded-md items-center">
+              <Text className="text-white font-semibold">Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

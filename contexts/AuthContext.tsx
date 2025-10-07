@@ -14,6 +14,8 @@ interface User {
   perfil?: string;
   tipo?: string;
   pro?: boolean;
+  revisao?: string; // 'sim' | 'nao' | 'pendente'
+  revisado?: string; // backend/web alias: 'sim' | 'nao' | 'pendente'
 }
 
 interface AuthContextType {
@@ -109,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 headers: { Authorization: `Bearer ${token}` }
               });
               setUser(userResponse as User);
+            console.log('[AuthContext] user (deep link):', userResponse);
               setIsAuthenticated(true);
               console.log('✅ Login realizado com sucesso via deep link!');
             } catch (error) {
@@ -143,6 +146,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setApiToken(token);
   }, [token]);
 
+  // Debug: print only user info from context when it changes
+  useEffect(() => {
+    if (user) {
+      console.log('[AuthContext] user:', user);
+    } else {
+      console.log('[AuthContext] user: null');
+    }
+  }, [user]);
+
   // Função para obter o token
   const getToken = async (username: string, password: string) => {
     try {
@@ -166,6 +178,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setUser(userResponse as User);
+      console.log('[AuthContext] user (getToken):', userResponse);
       setIsAuthenticated(true);
     } catch (error: any) {
       // Handle all errors
@@ -227,6 +240,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             headers: { Authorization: `Bearer ${token}` }
           });
           setUser(response as User);
+          console.log('[AuthContext] user (fetchUser):', response);
           setIsAuthenticated(true);
         } catch (error: any) {
           if (error.message === "Network Error") {

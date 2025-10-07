@@ -98,6 +98,16 @@ export default function NotificationsScreen() {
   const onPressItem = async (n: NotificationItem) => {
     // marcar como lida e navegar
     if (!n.lida) await markAsRead(n.id);
+    // Detecta notificações de verificação aprovada/negada
+    try {
+      const msg = (n.mensagem || '').toLowerCase();
+      const tipo = (n.tipo || '').toLowerCase();
+      const aprovado = msg.includes('aprovado') || msg.includes('aprovada') || tipo.includes('verificacao_aprovada');
+      const recusado = msg.includes('recusado') || msg.includes('reprovado') || tipo.includes('verificacao_recusada');
+      if (aprovado || recusado) {
+        return router.push({ pathname: '/verificacao-status', params: { status: aprovado ? 'aprovado' : 'recusado', id: String(n.id), motivo: n.mensagem || '' } } as any);
+      }
+    } catch {}
     if (n.url_destino) {
       try {
         const url = n.url_destino;

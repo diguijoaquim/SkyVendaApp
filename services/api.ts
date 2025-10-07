@@ -100,12 +100,34 @@ export async function postFormUrlEncoded<T>(path: string, params: URLSearchParam
 }
 
 export async function postMultipart<T>(path: string, formData: FormData, init?: AxiosRequestConfig): Promise<T> {
-  // Let axios/React Native set the proper boundary automatically
-  return request<T>(path, {
+  // Add robust settings for multipart uploads with simple retry
+  const config: AxiosRequestConfig = {
     method: 'POST',
     data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(init?.headers || {}),
+    },
+    timeout: Math.max(90000, init?.timeout || 0), // at least 90s
     ...(init || {}),
-  });
+  };
+
+  let lastError: any = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await request<T>(path, config);
+    } catch (err: any) {
+      lastError = err;
+      const isNetwork = err?.code === 'NETWORK_ERROR' || err?.message === 'Network Error';
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
+      if (attempt < 2 && (isNetwork || isTimeout)) {
+        await new Promise((r) => setTimeout(r, 1000)); // small backoff
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 export async function putMultipart<T>(path: string, formData: FormData, init?: AxiosRequestConfig): Promise<T> {
