@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Login() {

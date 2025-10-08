@@ -20,12 +20,13 @@ import { useWebSocket } from '@/contexts/WebSocketContext';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Modal } from 'react-native';
 
 export default function ChatConversationScreen() {
   const router = useRouter();
   const { chatId, name, avatar } = useLocalSearchParams();
   const { user } = useAuth();
-  const { selectedUser, chats, sendMessage: wsSendMessage, markAsRead } = useWebSocket();
+  const { selectedUser, chats, sendMessage: wsSendMessage, markAsRead, callState, callInfo, startCall, acceptCall, rejectCall, endCall } = useWebSocket();
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -339,6 +340,20 @@ export default function ChatConversationScreen() {
           </View>
         </TouchableOpacity>
         
+        {/* Video call button */}
+        <TouchableOpacity
+          onPress={() => {
+            if (!currentChat?.id) return;
+            const displayName = (currentChat?.nome || currentChat?.name || (name as string) || '—') as string;
+            const uname = (currentChat?.username || '') as string;
+            const av = ensureAbsoluteUrl((currentChat?.foto as string) || (currentChat?.avatar as string) || (avatar as string), displayName);
+            startCall(String(currentChat.id), { name: displayName, username: uname, avatar: av });
+          }}
+          className="ml-2"
+        >
+          <Ionicons name="videocam-outline" size={24} color="#2563EB" />
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={handleUserInfo}
           className="ml-2"
@@ -470,6 +485,55 @@ export default function ChatConversationScreen() {
         keyboardDismissMode="interactive"
       />
       
+      {/* Video Call Modal */}
+      <Modal
+        visible={callState !== 'idle'}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {}}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', alignItems: 'center' }}>
+            {/* Avatar */}
+            <Image
+              source={{ uri: ensureAbsoluteUrl(callInfo?.peerAvatar, callInfo?.peerName) }}
+              style={{ width: 96, height: 96, borderRadius: 48 }}
+              contentFit='cover'
+            />
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#111827', marginTop: 12 }}>
+              {callInfo?.peerName || 'Chamando...'}
+            </Text>
+            {!!callInfo?.peerUsername && (
+              <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 4 }}>
+                @{callInfo?.peerUsername}
+              </Text>
+            )}
+            <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8 }}>
+              {callState === 'incoming' ? 'Chamada recebida' : callState === 'outgoing' ? 'Chamando…' : callState === 'active' ? 'Chamada em andamento' : 'Finalizando…'}
+            </Text>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 24, marginTop: 24 }}>
+              {callState === 'incoming' && (
+                <>
+                  <TouchableOpacity onPress={acceptCall} style={{ backgroundColor: '#10B981', width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="call" size={28} color="#ffffff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={rejectCall} style={{ backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="call" size={28} color="#ffffff" style={{ transform: [{ rotate: '135deg' }] }} />
+                  </TouchableOpacity>
+                </>
+              )}
+              {(callState === 'outgoing' || callState === 'active' || callState === 'ending') && (
+                <TouchableOpacity onPress={endCall} style={{ backgroundColor: '#EF4444', width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="call" size={30} color="#ffffff" style={{ transform: [{ rotate: '135deg' }] }} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Input de mensagem - sempre na parte inferior */}
       {renderMessageInput()}
     </SafeAreaView>

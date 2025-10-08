@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import * as React from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { Alert, Platform, AppState } from 'react-native';
 // Web-only for now: do not import native modules like expo-av or expo-notifications
@@ -50,7 +51,19 @@ export type ChatUser = {
     last_seen?: string;
     is_online?: boolean;
   };
+};
 
+// Video call types
+export type CallState = 'idle' | 'outgoing' | 'incoming' | 'active' | 'ending';
+export type CallInfo = {
+  callId: string;
+  peerId: string;
+  peerName?: string;
+  peerUsername?: string;
+  peerAvatar?: string;
+  status?: string; // ringing | accepted | rejected | ended
+  reason?: string; // busy | timeout | ended_by_user | peer_disconnected
+  createdAt?: string;
 };
 
 type WebSocketContextValue = {
@@ -77,6 +90,13 @@ type WebSocketContextValue = {
   markAllChatsAsRead: () => void;
   connect: () => void;
   disconnect: () => void;
+  // Video call API
+  callState: CallState;
+  callInfo: CallInfo | null;
+  startCall: (toUserId: string, peerHint?: { name?: string; username?: string; avatar?: string }) => void;
+  acceptCall: () => void;
+  rejectCall: () => void;
+  endCall: () => void;
 };
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -96,6 +116,9 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   const [chats, setChats] = useState<ChatUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  // Video call state
+  const [callState, setCallState] = useState<CallState>('idle');
+  const [callInfo, setCallInfo] = useState<CallInfo | null>(null);
   // Web-only: no sound instance for notifications
   
   const retryRef = useRef<number>(0);
@@ -112,6 +135,57 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     file?: any;
     tempId: string;
   }[]>([]);
+
+  // -------------- Video Call Methods --------------
+  const startCall = (toUserId: string, peerHint?: { name?: string; username?: string; avatar?: string }) => {
+    if (!toUserId) return;
+    const isOpen = socketRef.current?.readyState === WebSocket.OPEN;
+    try {
+      if (peerHint) {
+        setCallInfo({
+          callId: '',
+          peerId: String(toUserId),
+          peerName: peerHint.name,
+          peerUsername: peerHint.username,
+          peerAvatar: peerHint.avatar,
+          status: 'ringing',
+        });
+        setCallState('outgoing');
+      }
+      const payload = { type: 'video_call', action: 'start_call', to_user: String(toUserId), receiver_id: String(toUserId) } as const;
+      if (isOpen) {
+        socketRef.current?.send(JSON.stringify(payload));
+      } else {
+        wsWarn('startCall: socket not open');
+        connect();
+        setTimeout(() => { try { socketRef.current?.send(JSON.stringify(payload)); } catch {} }, 500);
+      }
+    } catch (e) {
+      wsWarn('startCall error', e as any);
+    }
+  };
+
+  const acceptCall = () => {
+    if (!callInfo?.callId) return;
+    const payload = { type: 'video_call', action: 'call_response', call_id: callInfo.callId, accepted: true } as const;
+    try { socketRef.current?.send(JSON.stringify(payload)); } catch (e) { wsWarn('acceptCall error', e as any); }
+  };
+
+  const rejectCall = () => {
+    if (!callInfo?.callId) return;
+    const payload = { type: 'video_call', action: 'call_response', call_id: callInfo.callId, accepted: false } as const;
+    try { socketRef.current?.send(JSON.stringify(payload)); } catch (e) { wsWarn('rejectCall error', e as any); }
+    setCallState('idle');
+    setTimeout(() => setCallInfo(null), 500);
+  };
+
+  const endCall = () => {
+    if (!callInfo?.callId) { setCallState('idle'); setCallInfo(null); return; }
+    setCallState('ending');
+    const payload = { type: 'video_call', action: 'end_call', call_id: callInfo.callId } as const;
+    try { socketRef.current?.send(JSON.stringify(payload)); } catch (e) { wsWarn('endCall error', e as any); }
+    setTimeout(() => { setCallState('idle'); setCallInfo(null); }, 600);
+  };
 
   // Fetch chats from API and map to expected shape
   const refreshChats = useCallback(async () => {
@@ -283,6 +357,76 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           if (t === 'message') {
             const payload = data.data || data; // backend may wrap in data
             handleIncomingMessage(payload);
+            return;
+          }
+          if (t === 'video_call') {
+            const action = (data.action || '').toString();
+            const d = data.data || {};
+            wsLog('video_call action:', action, d);
+            if (action === 'incoming_call') {
+              const info: CallInfo = {
+                callId: String(d.call_id || ''),
+                peerId: String(d.caller_id || ''),
+                peerName: d.caller_name,
+                peerUsername: d.caller_username,
+                peerAvatar: d.caller_avatar,
+                status: 'ringing',
+                createdAt: d.created_at,
+              };
+              setCallInfo(info);
+              setCallState('incoming');
+              return;
+            }
+            if (action === 'call_created') {
+              const info: CallInfo = {
+                callId: String(d.call_id || ''),
+                peerId: String(d.receiver_id || ''),
+                peerName: d.receiver_name,
+                peerUsername: d.receiver_username,
+                peerAvatar: d.receiver_avatar,
+                status: 'ringing',
+                createdAt: d.created_at,
+              };
+              setCallInfo(info);
+              setCallState('outgoing');
+              return;
+            }
+            if (action === 'call_response') {
+              const accepted = !!d.accepted;
+              if (accepted) {
+                setCallState('active');
+                setCallInfo(prev => prev ? { ...prev, status: 'accepted' } : prev);
+              } else {
+                setCallInfo(prev => prev ? { ...prev, status: 'rejected', reason: 'rejected' } : prev);
+                setCallState('idle');
+                setTimeout(() => setCallInfo(null), 500);
+              }
+              return;
+            }
+            if (action === 'call_accepted') {
+              setCallState('active');
+              setCallInfo(prev => prev ? { ...prev, status: 'accepted' } : prev);
+              return;
+            }
+            if (action === 'call_rejected') {
+              setCallInfo(prev => prev ? { ...prev, status: 'rejected', reason: 'rejected' } : prev);
+              setCallState('idle');
+              setTimeout(() => setCallInfo(null), 500);
+              return;
+            }
+            if (action === 'call_ended') {
+              setCallInfo(prev => prev ? { ...prev, status: 'ended', reason: d.reason || 'ended_by_peer' } : prev);
+              setCallState('idle');
+              setTimeout(() => setCallInfo(null), 500);
+              return;
+            }
+            if (action === 'error' || action === 'busy' || action === 'timeout') {
+              setCallInfo(prev => prev ? { ...prev, status: 'ended', reason: action } : prev);
+              setCallState('idle');
+              setTimeout(() => setCallInfo(null), 800);
+              return;
+            }
+            // sdp_offer/sdp_answer/ice_candidate will be handled when media is integrated
             return;
           }
           // Info: detect session replacement and suppress auto-reconnect
@@ -683,6 +827,13 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         markAllChatsAsRead,
         connect,
         disconnect,
+        // Video call API
+        callState,
+        callInfo,
+        startCall,
+        acceptCall,
+        rejectCall,
+        endCall,
       }}
     >
       {children}
